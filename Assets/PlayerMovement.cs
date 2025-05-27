@@ -18,6 +18,12 @@ namespace TopDown
 
         private Rigidbody2D rb; // Reference to Rigidbody2D
 
+        public GameObject mainCamera;
+
+        // Player Sprite
+        public GameObject movingPlayer;
+        public GameObject staticPlayer;
+
         private void Awake()
         {
             rb = GetComponent<Rigidbody2D>(); // Get the Rigidbody2D on the GameObject
@@ -25,7 +31,8 @@ namespace TopDown
 
         private void Update()
         {
-            HandleAnimations(); // Update animation every frame
+            HandleAnimations(); // Update animation every frame      
+
         }
 
         private void FixedUpdate()
@@ -87,6 +94,21 @@ namespace TopDown
             else
             {
                 movementInput = Vector2.zero; // No movement
+            }
+        }
+
+        private void OnTriggerStay2D(Collider2D collision)
+        {
+            if(collision.gameObject.tag == "Counter")
+            {
+                if (Input.GetKey(KeyCode.E))
+                {
+                    collision.gameObject.GetComponent<CounterController>().StartDay();
+
+                    // Set active static player
+                    movingPlayer.SetActive(false);
+                    staticPlayer.SetActive(true);
+                }
             }
         }
     }
