@@ -78,4 +78,9 @@ public class TimeManager : MonoBehaviour
             movingPlayer.SetActive(true);
         }
     }
+
+    public DateTime GetCurrentTime()
+    {
+        return currentTime;
+    }
 }
