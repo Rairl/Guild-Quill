@@ -16,7 +16,6 @@ public class CounterController : MonoBehaviour
     [SerializeField] public GameObject questPaper8;
     [SerializeField] public GameObject questPaper9;
     [SerializeField] public GameObject questPaper10;
-    [SerializeField] public GameObject questCover;
     [SerializeField] public GameObject questFlip;
 
     public void StartDay()
@@ -33,7 +32,6 @@ public class CounterController : MonoBehaviour
         questPaper8.SetActive(true);
         questPaper9.SetActive(true);
         questPaper10.SetActive(true);
-        questCover.SetActive(true);
         questFlip.SetActive(true);
     }
 
@@ -56,7 +54,6 @@ public class CounterController : MonoBehaviour
         questPaper8.SetActive(false);
         questPaper9.SetActive(false);
         questPaper10.SetActive(false);
-        questCover.SetActive(false);
         questFlip.SetActive(false);
     }
 }
