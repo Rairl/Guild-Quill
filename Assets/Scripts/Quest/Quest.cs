@@ -14,12 +14,8 @@ public class Quest : MonoBehaviour
     public void AssignQuest(string name, string description)
     {
         isStamped = false;
-
-        if (questNameText != null)
-            questNameText.text = name;
-
-        if (questDescriptionText != null)
-            questDescriptionText.text = description;
+        if (questNameText != null) questNameText.text = name;
+        if (questDescriptionText != null) questDescriptionText.text = description;
     }
 
     public void ResetQuest()
@@ -40,9 +36,7 @@ public class Quest : MonoBehaviour
         if (currentAdventurer != null)
         {
             foreach (var trait in currentAdventurer.traits)
-            {
                 if (trait.name == "Reliable") traitBonus += 0.05f;
-            }
         }
 
         float successRate = Mathf.Clamp01(baseSuccessRate + traitBonus);
@@ -52,7 +46,5 @@ public class Quest : MonoBehaviour
         {
             GameResultsManager.Instance.AddEarnings(100);
         }
-
-        FindObjectOfType<GameManager>().CompleteQuestAndSendAdventurer();
     }
 }

@@ -18,7 +18,6 @@ public class GameManager : MonoBehaviour
     [Header("UI Elements")]
     public GameObject adventurerIDHolder;
     public GameObject questHolder;
-    public GameObject approvedStamp;
     public TMP_Text nameText;
     public TMP_Text traitsText;
     public TMP_Text questNameText;
@@ -26,11 +25,14 @@ public class GameManager : MonoBehaviour
 
     private List<Adventurer> activeAdventurers = new();
     private bool counterOccupied = false;
-    private Adventurer currentAdventurerAtCounter = null;
     private bool isDayOver = false;
 
+    private Adventurer currentAdventurerAtCounter = null;
+    private QuestData currentProvidedQuest = null;
+
     private readonly string[] possibleNames = {
-        "Cylix", "Pavel", "Terys", "Aria", "Minetta", "Dana", "Nindr", "Saevel", "Gildir", "Alavara", "Eilua", "Eiresti", "Bromir", "Drak", "Brund"
+        "Cylix", "Pavel", "Terys", "Aria", "Minetta", "Dana", "Nindr", "Saevel", "Gildir",
+        "Alavara", "Eilua", "Eiresti", "Bromir", "Drak", "Brund"
     };
 
     private List<Trait> allPositiveTraits = new()
@@ -63,17 +65,25 @@ public class GameManager : MonoBehaviour
 
     private List<QuestData> questList = new()
     {
-        new QuestData("Herbalist’s Request", "Gather rare herbs in the nearby meadow for the local apothecary. Low danger, good for beginners."),
-        new QuestData("Lost Heirloom", "Retrieve a stolen family ring from petty bandits hiding in the old mill. Light combat may be required."),
-        new QuestData("Goblin Encroachment", "Drive off goblins harassing farmsteads at dusk. Moderate risk."),
-        new QuestData("Ancient Ruins Survey", "Escort scholars exploring newly uncovered ruins. Traps and minor monsters."),
-        new QuestData("Trade Route Patrol", "Safeguard a caravan to the mountain pass. Higher chance of ambush."),
-        new QuestData("Haunted Manor Investigation", "Uncover eerie disturbances in an abandoned estate. Supernatural threats possible."),
-        new QuestData("Beast Hunt: Dire Boar", "Slay a dire boar terrorizing villages. Requires strength and coordination."),
-        new QuestData("Diplomatic Escort", "Protect a treaty envoy. High political stakes; stealth recommended."),
-        new QuestData("Mine Disaster Response", "Rescue trapped miners after a collapse. Complex hazards, limited time."),
-        new QuestData("Cult Disruption", "Infiltrate and dismantle a cult near the cliffs. Extremely dangerous.")
+        new("Herbalist’s Request", "Gather rare herbs in the nearby meadow for the local apothecary. Low danger, good for beginners."),
+        new("Lost Heirloom", "Retrieve a stolen family ring from petty bandits hiding in the old mill. Light combat may be required."),
+        new("Goblin Encroachment", "Drive off goblins harassing farmsteads at dusk. Moderate risk."),
+        new("Ancient Ruins Survey", "Escort scholars exploring newly uncovered ruins. Traps and minor monsters."),
+        new("Trade Route Patrol", "Safeguard a caravan to the mountain pass. Higher chance of ambush."),
+        new("Haunted Manor Investigation", "Uncover eerie disturbances in an abandoned estate. Supernatural threats possible."),
+        new("Beast Hunt: Dire Boar", "Slay a dire boar terrorizing villages. Requires strength and coordination."),
+        new("Diplomatic Escort", "Protect a treaty envoy. High political stakes; stealth recommended."),
+        new("Mine Disaster Response", "Rescue trapped miners after a collapse. Complex hazards, limited time."),
+        new("Cult Disruption", "Infiltrate and dismantle a cult near the cliffs. Extremely dangerous.")
     };
+
+    public static GameManager Instance { get; private set; }
+    public Adventurer CurrentAdventurer => currentAdventurerAtCounter;
+
+    void Awake()
+    {
+        Instance = this;
+    }
 
     void Start()
     {
@@ -148,20 +158,16 @@ public class GameManager : MonoBehaviour
 
         adventurerIDHolder.SetActive(true);
         questHolder.SetActive(true);
-        approvedStamp.SetActive(false);
 
         nameText.text = adventurer.name;
         traitsText.text = GetTraitsString(adventurer);
 
-        Quest quest = questHolder.GetComponent<Quest>();
-        StampTrigger trigger = FindObjectOfType<StampTrigger>();
-        if (quest != null && trigger != null)
-        {
-            QuestData randomQuest = questList[UnityEngine.Random.Range(0, questList.Count)];
-            quest.AssignQuest(randomQuest.questName, randomQuest.questDescription);
-            quest.currentAdventurer = adventurer;
-            trigger.questScript = quest;
-        }
+        // Assign adventurer's quest
+        QuestData randomQuest = questList[UnityEngine.Random.Range(0, questList.Count)];
+        currentProvidedQuest = randomQuest;
+
+        questNameText.text = randomQuest.questName;
+        questDescriptionText.text = randomQuest.questDescription;
     }
 
     string GetTraitsString(Adventurer adventurer)
@@ -179,10 +185,32 @@ public class GameManager : MonoBehaviour
 
         string result = "Traits:\n";
         if (pos.Count > 0)
-            result += "Positive: " + string.Join(", ", pos) + "\n";
+            result += string.Join(", ", pos) + "\n";
         if (neg.Count > 0)
-            result += "Negative: " + string.Join(", ", neg);
+            result += string.Join(", ", neg);
         return result;
+    }
+
+    public void StampQuest(QuestData questToUse)
+    {
+        if (currentAdventurerAtCounter == null || questToUse == null) return;
+
+        float baseRate = 0.8f;
+        float bonus = 0f;
+
+        foreach (var trait in currentAdventurerAtCounter.traits)
+        {
+            if (trait.name == "Reliable")
+                bonus += 0.05f;
+        }
+
+        float finalRate = Mathf.Clamp01(baseRate + bonus);
+        bool success = UnityEngine.Random.value <= finalRate;
+
+        if (success)
+            GameResultsManager.Instance.AddEarnings(100);
+
+        CompleteQuestAndSendAdventurer();
     }
 
     public void CompleteQuestAndSendAdventurer()
@@ -204,13 +232,13 @@ public class GameManager : MonoBehaviour
 
         counterOccupied = false;
         currentAdventurerAtCounter = null;
+        currentProvidedQuest = null;
     }
 
     void ClearUI()
     {
         adventurerIDHolder.SetActive(false);
         questHolder.SetActive(false);
-        approvedStamp.SetActive(false);
         nameText.text = "";
         traitsText.text = "";
         questNameText.text = "";
@@ -222,8 +250,14 @@ public class GameManager : MonoBehaviour
         isDayOver = isOver;
         if (isOver) ClearUI();
     }
+
+    public QuestData GetAdventurerProvidedQuest()
+    {
+        return currentProvidedQuest;
+    }
 }
 
+[System.Serializable]
 public class QuestData
 {
     public string questName;
