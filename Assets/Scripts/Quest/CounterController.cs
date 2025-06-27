@@ -5,10 +5,12 @@ using TMPro;
 public class CounterController : MonoBehaviour
 {
     [SerializeField] public GameObject startDay;
+    [SerializeField] public GameObject stamp;
 
     public void StartDay()
     {
         startDay.SetActive(true);
+        stamp.SetActive(true);
     }
 
     public bool dayActive()
@@ -19,5 +21,6 @@ public class CounterController : MonoBehaviour
     public void stopWork()
     {
         startDay.SetActive(false);
+        stamp.SetActive(false);
     }
 }

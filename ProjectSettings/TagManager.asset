@@ -5,6 +5,7 @@ TagManager:
   serializedVersion: 2
   tags:
   - Counter
+  - Stamp
   layers:
   - Default
   - TransparentFX

@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
 using System;
@@ -23,8 +21,12 @@ public class TimeManager : MonoBehaviour
     private float timer;
     private bool hasEnded = false;
 
+    public static TimeManager Instance;
+
     void Start()
     {
+        Instance = this; // Singleton reference
+
         // Start at 9:00 AM and end at 11:00 PM
         currentTime = DateTime.Today.AddHours(9);
         endTime = DateTime.Today.AddHours(23);
@@ -64,23 +66,29 @@ public class TimeManager : MonoBehaviour
         hasEnded = true;
 
         if (activeCounter != null)
-        {
             activeCounter.stopWork();
-        }
 
         if (staticPlayer != null)
-        {
             staticPlayer.SetActive(false);
-        }
 
         if (movingPlayer != null)
-        {
             movingPlayer.SetActive(true);
-        }
+
+        GameResultsManager.Instance.ShowEndResults();
+        FindObjectOfType<GameManager>().SetDayOver(true);
     }
 
     public DateTime GetCurrentTime()
     {
         return currentTime;
+    }
+
+    public void StartNewDay()
+    {
+        currentTime = DateTime.Today.AddHours(9);
+        endTime = DateTime.Today.AddHours(23);
+        timer = 0f;
+        hasEnded = false;
+        UpdateTimerDisplay();
     }
 }
