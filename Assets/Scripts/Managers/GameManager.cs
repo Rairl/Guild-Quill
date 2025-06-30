@@ -23,6 +23,11 @@ public class GameManager : MonoBehaviour
     public TMP_Text questNameText;
     public TMP_Text questDescriptionText;
 
+    [Header("Ahwoooooooo")]
+    public GameObject Image;
+    public AudioSource audioSource;
+    public AudioClip ahwooooooSfx;
+
     private List<Adventurer> activeAdventurers = new();
     private bool counterOccupied = false;
     private bool isDayOver = false;
@@ -87,6 +92,8 @@ public class GameManager : MonoBehaviour
 
     void Start()
     {
+        if (audioSource == null)
+            audioSource = GetComponent<AudioSource>();
         StartCoroutine(SpawnAdventurers());
     }
 
@@ -156,6 +163,8 @@ public class GameManager : MonoBehaviour
 
         yield return StartCoroutine(MoveToPosition(adventurer.gameObject, adventurerCounter.position));
 
+        Image.SetActive(true);
+
         adventurerIDHolder.SetActive(true);
         questHolder.SetActive(true);
 
@@ -215,6 +224,9 @@ public class GameManager : MonoBehaviour
 
     public void CompleteQuestAndSendAdventurer()
     {
+        if (audioSource != null && ahwooooooSfx != null)
+            audioSource.PlayOneShot(ahwooooooSfx);
+
         if (currentAdventurerAtCounter != null)
             StartCoroutine(MoveAdventurerBack(currentAdventurerAtCounter));
     }
@@ -226,6 +238,7 @@ public class GameManager : MonoBehaviour
         if (adventurer != null && adventurer.gameObject != null)
         {
             yield return StartCoroutine(MoveToPosition(adventurer.gameObject, adventurerEntry.position));
+           
             activeAdventurers.Remove(adventurer);
             Destroy(adventurer.gameObject);
         }
@@ -243,6 +256,8 @@ public class GameManager : MonoBehaviour
         traitsText.text = "";
         questNameText.text = "";
         questDescriptionText.text = "";
+
+        Image.SetActive(false);
     }
 
     public void SetDayOver(bool isOver)

@@ -11,6 +11,7 @@ public class DraggableItem : MonoBehaviour, IBeginDragHandler, IDragHandler, IEn
     private Canvas canvas;
 
     public RectTransform dragArea; // assign brown area in Inspector
+
     private bool isDraggingAllowed = false;
 
     private void Awake()
