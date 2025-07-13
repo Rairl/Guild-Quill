@@ -14,12 +14,21 @@ public class GameResultsManager : MonoBehaviour
     public TMP_Text dayText;
     public Button nextDayButton;
 
+    [Header("Day Start UI")]
+    public GameObject dayStartPanel;
+    public TMP_Text dayStartText;
+
     private int dailyEarnings = 0;
     private int currentDay = 1;
 
     void Awake()
     {
         if (Instance == null) Instance = this;
+    }
+
+    void Start()
+    {
+        ShowDayStartPanel(); // Show Day 1 panel on game start
     }
 
     public void AddEarnings(int amount)
@@ -44,8 +53,27 @@ public class GameResultsManager : MonoBehaviour
         endResultsPanel.SetActive(false);
 
         TimeManager.Instance.StartNewDay();
-        FindObjectOfType<GameManager>().SetDayOver(false);
+        GameManager.Instance.SetDayOver(false);
+
+        ShowDayStartPanel(); // Show new day panel
+
+        GameManager.Instance.OnNewDayStart();
     }
 
     public int GetCurrentDay() => currentDay;
+
+    public void ShowDayStartPanel()
+    {
+        if (dayStartPanel == null || dayStartText == null) return;
+
+        dayStartText.text = $"Day {currentDay}";
+        dayStartPanel.SetActive(true);
+        StartCoroutine(HideDayStartPanelAfterDelay());
+    }
+
+    IEnumerator HideDayStartPanelAfterDelay()
+    {
+        yield return new WaitForSeconds(2f);
+        dayStartPanel.SetActive(false);
+    }
 }

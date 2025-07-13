@@ -23,8 +23,12 @@ public class GameManager : MonoBehaviour
     public TMP_Text questNameText;
     public TMP_Text questDescriptionText;
 
-    [Header("Ahwoooooooo")]
-    public GameObject Image;
+    [Header("Dialogue and Mood UI")]
+    public GameObject Image; // Adventurer image
+    public GameObject moodUI; // Mood UI panel
+    public TMP_Text dialogueText;
+
+    [Header("Audio")]
     public AudioSource audioSource;
     public AudioClip ahwooooooSfx;
 
@@ -85,6 +89,8 @@ public class GameManager : MonoBehaviour
     public static GameManager Instance { get; private set; }
     public Adventurer CurrentAdventurer => currentAdventurerAtCounter;
 
+    private int dayNumber => GameResultsManager.Instance.GetCurrentDay();
+
     void Awake()
     {
         Instance = this;
@@ -94,40 +100,111 @@ public class GameManager : MonoBehaviour
     {
         if (audioSource == null)
             audioSource = GetComponent<AudioSource>();
+
         StartCoroutine(SpawnAdventurers());
     }
 
     IEnumerator SpawnAdventurers()
     {
-        while (true)
+        Debug.Log($"SpawnAdventurers started for Day {dayNumber}");
+        isDayOver = false;
+
+        if (dayNumber == 1)
         {
-            float waitTime = UnityEngine.Random.Range(20f, 40f);
-            yield return new WaitForSeconds(waitTime);
-
-            if (isDayOver) continue;
-
-            DateTime currentTime = timeManager.GetCurrentTime();
-            if (currentTime.TimeOfDay >= new TimeSpan(10, 0, 0) &&
-                currentTime.TimeOfDay <= new TimeSpan(22, 30, 0))
+            for (int i = 0; i < 10; i++)
             {
+                if (isDayOver)
+                {
+                    Debug.Log("Day 1 ended early, stopping spawning.");
+                    yield break;
+                }
+
+                // Wait until between 10:00 AM and 11:00 PM
+                yield return new WaitUntil(() =>
+                {
+                    var t = timeManager.GetCurrentTime().TimeOfDay;
+                    return t >= new TimeSpan(10, 0, 0) && t <= new TimeSpan(23, 0, 0);
+                });
+
                 GameObject adventurerObj = Instantiate(adventurerPrefab, adventurerEntry.position, Quaternion.identity);
                 string randomName = possibleNames[UnityEngine.Random.Range(0, possibleNames.Length)];
                 Adventurer adventurer = new(adventurerObj, randomName);
                 adventurer.traits.AddRange(RandomizeTraits(allPositiveTraits, 3));
-                adventurer.traits.AddRange(RandomizeTraits(allNegativeTraits, 3));
+                adventurer.traits.AddRange(RandomizeTraits(allNegativeTraits, 2));
                 activeAdventurers.Add(adventurer);
 
-                Transform target = spawnPoints[UnityEngine.Random.Range(0, spawnPoints.Length)];
-                StartCoroutine(MoveToPosition(adventurer.gameObject, target.position));
-                StartCoroutine(AttemptMoveToCounter(adventurer, UnityEngine.Random.Range(10f, 25f)));
+                yield return StartCoroutine(HandleDayOneRegistration(adventurer));
+
+                // Wait a random delay between 20 to 40 seconds before spawning next
+                float waitTime = UnityEngine.Random.Range(20f, 40f);
+                yield return new WaitForSeconds(waitTime);
             }
         }
+        else
+        {
+            // Days 2-7: Adventurers spawn continuously between 10:00am and 10:30pm
+            while (!isDayOver)
+            {
+                float waitTime = UnityEngine.Random.Range(20f, 40f);
+                yield return new WaitForSeconds(waitTime);
+
+                DateTime currentTime = timeManager.GetCurrentTime();
+                Debug.Log($"Day {dayNumber} current time: {currentTime.TimeOfDay}");
+
+                if (currentTime.TimeOfDay >= new TimeSpan(10, 0, 0) &&
+                    currentTime.TimeOfDay <= new TimeSpan(22, 30, 0))
+                {
+                    GameObject adventurerObj = Instantiate(adventurerPrefab, adventurerEntry.position, Quaternion.identity);
+                    string randomName = possibleNames[UnityEngine.Random.Range(0, possibleNames.Length)];
+                    Adventurer adventurer = new(adventurerObj, randomName);
+                    adventurer.traits.AddRange(RandomizeTraits(allPositiveTraits, 3));
+                    adventurer.traits.AddRange(RandomizeTraits(allNegativeTraits, 2));
+                    activeAdventurers.Add(adventurer);
+
+                    // Move to a random spawn point first
+                    Transform target = spawnPoints[UnityEngine.Random.Range(0, spawnPoints.Length)];
+                    StartCoroutine(MoveToPosition(adventurer.gameObject, target.position));
+
+                    // After a delay, attempt to move to the counter
+                    StartCoroutine(AttemptMoveToCounter(adventurer, UnityEngine.Random.Range(10f, 25f)));
+                }
+            }
+        }
+        Debug.Log("SpawnAdventurers coroutine ended");
+    }
+
+    IEnumerator HandleDayOneRegistration(Adventurer adventurer)
+    {
+        while (counterOccupied)
+            yield return null; // wait if counter busy
+
+        counterOccupied = true;
+        currentAdventurerAtCounter = adventurer;
+
+        yield return StartCoroutine(MoveToPosition(adventurer.gameObject, adventurerCounter.position));
+
+        // Show adventurer UI
+        Image.SetActive(true);
+        moodUI.SetActive(true);
+        adventurerIDHolder.SetActive(true);
+        questHolder.SetActive(true);
+
+        nameText.text = adventurer.name;
+        traitsText.text = GetTraitsString(adventurer);
+
+        // On Day 1, no quests, only registration
+        questNameText.text = "Registering...";
+        questDescriptionText.text = "";
+
+        // Wait for player to complete registration (e.g., stamping)
+        yield return new WaitUntil(() => !counterOccupied);
     }
 
     List<Trait> RandomizeTraits(List<Trait> pool, int max)
     {
         List<Trait> selected = new();
-        int count = UnityEngine.Random.Range(0, max + 1);
+        int count = UnityEngine.Random.Range(max, max + 1); // Always max traits
+
         while (selected.Count < count)
         {
             Trait t = pool[UnityEngine.Random.Range(0, pool.Count)];
@@ -164,6 +241,7 @@ public class GameManager : MonoBehaviour
         yield return StartCoroutine(MoveToPosition(adventurer.gameObject, adventurerCounter.position));
 
         Image.SetActive(true);
+        moodUI.SetActive(true);
 
         adventurerIDHolder.SetActive(true);
         questHolder.SetActive(true);
@@ -171,7 +249,6 @@ public class GameManager : MonoBehaviour
         nameText.text = adventurer.name;
         traitsText.text = GetTraitsString(adventurer);
 
-        // Assign adventurer's quest
         QuestData randomQuest = questList[UnityEngine.Random.Range(0, questList.Count)];
         currentProvidedQuest = randomQuest;
 
@@ -238,7 +315,7 @@ public class GameManager : MonoBehaviour
         if (adventurer != null && adventurer.gameObject != null)
         {
             yield return StartCoroutine(MoveToPosition(adventurer.gameObject, adventurerEntry.position));
-           
+
             activeAdventurers.Remove(adventurer);
             Destroy(adventurer.gameObject);
         }
@@ -252,12 +329,14 @@ public class GameManager : MonoBehaviour
     {
         adventurerIDHolder.SetActive(false);
         questHolder.SetActive(false);
+        Image.SetActive(false);
+        moodUI.SetActive(false);
+
         nameText.text = "";
         traitsText.text = "";
         questNameText.text = "";
         questDescriptionText.text = "";
-
-        Image.SetActive(false);
+        dialogueText.text = "";
     }
 
     public void SetDayOver(bool isOver)
@@ -269,6 +348,14 @@ public class GameManager : MonoBehaviour
     public QuestData GetAdventurerProvidedQuest()
     {
         return currentProvidedQuest;
+    }
+
+    // Call this on new day start to reset and start spawning again
+    public void OnNewDayStart()
+    {
+        Debug.Log($"Starting Day {dayNumber}");
+        isDayOver = false;
+        StartCoroutine(SpawnAdventurers());
     }
 }
 
