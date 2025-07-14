@@ -138,7 +138,7 @@ public class GameManager : MonoBehaviour
                 yield return StartCoroutine(HandleDayOneRegistration(adventurer));
 
                 // Wait a random delay between 10 to 15 seconds before spawning next
-                float waitTime = UnityEngine.Random.Range(10f, 15f);
+                float waitTime = UnityEngine.Random.Range(5f, 10f);
                 yield return new WaitForSeconds(waitTime);
             }
         }
@@ -315,7 +315,7 @@ public class GameManager : MonoBehaviour
         if (adventurersStampedToday >= 10)
         {
             SetDayOver(true); // Stop new adventurers
-            RemoveAllAdventurers();
+            //RemoveAllAdventurers();
             GameResultsManager.Instance.ShowEndResults();
         }
     }
@@ -371,7 +371,7 @@ public class GameManager : MonoBehaviour
         StartCoroutine(SpawnAdventurers());
     }
 
-    private void RemoveAllAdventurers()
+    /*private void RemoveAllAdventurers()
     {
         foreach (Adventurer adventurer in activeAdventurers)
         {
@@ -382,7 +382,7 @@ public class GameManager : MonoBehaviour
         }
 
         activeAdventurers.Clear();
-    }
+    }*/
 }
 
 [System.Serializable]
