@@ -39,6 +39,8 @@ public class GameManager : MonoBehaviour
     private Adventurer currentAdventurerAtCounter = null;
     private QuestData currentProvidedQuest = null;
 
+    private int adventurersStampedToday = 0;
+
     private readonly string[] possibleNames = {
         "Cylix", "Pavel", "Terys", "Aria", "Minetta", "Dana", "Nindr", "Saevel", "Gildir",
         "Alavara", "Eilua", "Eiresti", "Bromir", "Drak", "Brund"
@@ -135,8 +137,8 @@ public class GameManager : MonoBehaviour
 
                 yield return StartCoroutine(HandleDayOneRegistration(adventurer));
 
-                // Wait a random delay between 20 to 40 seconds before spawning next
-                float waitTime = UnityEngine.Random.Range(20f, 40f);
+                // Wait a random delay between 10 to 15 seconds before spawning next
+                float waitTime = UnityEngine.Random.Range(10f, 15f);
                 yield return new WaitForSeconds(waitTime);
             }
         }
@@ -152,7 +154,7 @@ public class GameManager : MonoBehaviour
                 Debug.Log($"Day {dayNumber} current time: {currentTime.TimeOfDay}");
 
                 if (currentTime.TimeOfDay >= new TimeSpan(10, 0, 0) &&
-                    currentTime.TimeOfDay <= new TimeSpan(22, 30, 0))
+                    currentTime.TimeOfDay <= new TimeSpan(23, 0, 0))
                 {
                     GameObject adventurerObj = Instantiate(adventurerPrefab, adventurerEntry.position, Quaternion.identity);
                     string randomName = possibleNames[UnityEngine.Random.Range(0, possibleNames.Length)];
@@ -306,6 +308,16 @@ public class GameManager : MonoBehaviour
 
         if (currentAdventurerAtCounter != null)
             StartCoroutine(MoveAdventurerBack(currentAdventurerAtCounter));
+
+        adventurersStampedToday++;
+
+        // Show end panel after stamping 10 adventurers
+        if (adventurersStampedToday >= 10)
+        {
+            SetDayOver(true); // Stop new adventurers
+            RemoveAllAdventurers();
+            GameResultsManager.Instance.ShowEndResults();
+        }
     }
 
     IEnumerator MoveAdventurerBack(Adventurer adventurer)
@@ -355,7 +367,21 @@ public class GameManager : MonoBehaviour
     {
         Debug.Log($"Starting Day {dayNumber}");
         isDayOver = false;
+        adventurersStampedToday = 0;
         StartCoroutine(SpawnAdventurers());
+    }
+
+    private void RemoveAllAdventurers()
+    {
+        foreach (Adventurer adventurer in activeAdventurers)
+        {
+            if (adventurer != null && adventurer.gameObject != null)
+            {
+                Destroy(adventurer.gameObject);
+            }
+        }
+
+        activeAdventurers.Clear();
     }
 }
 
