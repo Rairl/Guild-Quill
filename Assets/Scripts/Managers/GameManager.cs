@@ -14,6 +14,14 @@ public class GameManager : MonoBehaviour
 
     [Header("Time Management")]
     public TimeManager timeManager;
+    public GameObject workUI;
+    //Static
+    public GameObject levelStatic;
+    public GameObject playerStatic;
+
+    //Main
+    public GameObject levelMain;
+    public GameObject playerMain;  
 
     [Header("UI Elements")]
     public GameObject adventurerIDHolder;
@@ -25,8 +33,10 @@ public class GameManager : MonoBehaviour
 
     [Header("Dialogue and Mood UI")]
     public GameObject Image; // Adventurer image
-    public GameObject moodUI; // Mood UI panel
+    public TMP_Text moodUI; // Mood UI panel
     public TMP_Text dialogueText;
+    public GameObject dialogueButton;
+    public GameObject dialoguePanel;
 
     [Header("Audio")]
     public AudioSource audioSource;
@@ -86,6 +96,34 @@ public class GameManager : MonoBehaviour
         new("Diplomatic Escort", "Protect a treaty envoy. High political stakes; stealth recommended."),
         new("Mine Disaster Response", "Rescue trapped miners after a collapse. Complex hazards, limited time."),
         new("Cult Disruption", "Infiltrate and dismantle a cult near the cliffs. Extremely dangerous.")
+    };
+
+    // Dialogue options
+    private List<string> registrationDialogues = new List<string>
+    {
+    "I want to register for the guild!",
+    "Ready to become a proud guild member!",
+    "Let’s get started with my registration.",
+    "Sign me up, I’m ready!",
+    "Excited to join the guild!"
+    };
+
+    private List<string> keepQuestDialogues = new List<string>
+    {
+    "I'm fine with the quest I have.",
+    "This quest suits me just fine.",
+    "I’ll stick with my current mission.",
+    "No need to change, I’m happy with this.",
+    "All good, this quest works for me."
+    };
+
+    private List<string> changeQuestDialogues = new List<string>
+    {
+    "I'd like to change my quest.",
+    "This one isn’t right for me.",
+    "Can I get a different mission?",
+    "I’m not feeling confident about this quest.",
+    "Mind if I switch to something else?"
     };
 
     public static GameManager Instance { get; private set; }
@@ -187,7 +225,7 @@ public class GameManager : MonoBehaviour
 
         // Show adventurer UI
         Image.SetActive(true);
-        moodUI.SetActive(true);
+        dialogueButton.SetActive(true);
         adventurerIDHolder.SetActive(true);
         questHolder.SetActive(true);
 
@@ -243,7 +281,7 @@ public class GameManager : MonoBehaviour
         yield return StartCoroutine(MoveToPosition(adventurer.gameObject, adventurerCounter.position));
 
         Image.SetActive(true);
-        moodUI.SetActive(true);
+        dialogueButton.SetActive(true);
 
         adventurerIDHolder.SetActive(true);
         questHolder.SetActive(true);
@@ -283,6 +321,15 @@ public class GameManager : MonoBehaviour
     {
         if (currentAdventurerAtCounter == null || questToUse == null) return;
 
+        // Check if player ignored adventurer's request
+        bool ignoredRequest = currentAdventurerAtCounter.wantsToChangeQuest && questToUse == GetAdventurerProvidedQuest();
+
+        if (ignoredRequest)
+        {
+            currentAdventurerAtCounter.ChangeMood(+1); // Mood gets worse
+        }
+
+        // Quest success logic
         float baseRate = 0.8f;
         float bonus = 0f;
 
@@ -296,7 +343,19 @@ public class GameManager : MonoBehaviour
         bool success = UnityEngine.Random.value <= finalRate;
 
         if (success)
+        {
             GameResultsManager.Instance.AddEarnings(100);
+        }
+        else
+        {
+            currentAdventurerAtCounter.ChangeMood(+1); // Failure = mood drops
+        }
+
+        // Check if adventurer leaves
+        if (currentAdventurerAtCounter.mood == Mood.VeryBad)
+        {
+            StartCoroutine(HandleAdventurerQuit(currentAdventurerAtCounter));
+        }
 
         CompleteQuestAndSendAdventurer();
     }
@@ -317,6 +376,7 @@ public class GameManager : MonoBehaviour
             SetDayOver(true); // Stop new adventurers
             //RemoveAllAdventurers();
             GameResultsManager.Instance.ShowEndResults();
+            endDay();          
         }
     }
 
@@ -342,13 +402,23 @@ public class GameManager : MonoBehaviour
         adventurerIDHolder.SetActive(false);
         questHolder.SetActive(false);
         Image.SetActive(false);
-        moodUI.SetActive(false);
+        dialogueButton.SetActive(false);
+        dialoguePanel.SetActive(false);
 
         nameText.text = "";
         traitsText.text = "";
         questNameText.text = "";
         questDescriptionText.text = "";
         dialogueText.text = "";
+    }
+
+    void endDay()
+    {
+        workUI.SetActive(false);
+        levelStatic.SetActive(false);
+        playerStatic.SetActive(false);
+        levelMain.SetActive(true);
+        playerMain.SetActive(true);
     }
 
     public void SetDayOver(bool isOver)
@@ -368,21 +438,66 @@ public class GameManager : MonoBehaviour
         Debug.Log($"Starting Day {dayNumber}");
         isDayOver = false;
         adventurersStampedToday = 0;
+
+        foreach (var adventurer in activeAdventurers)
+        {
+            if (adventurer.daysToSkip > 0)
+                adventurer.daysToSkip--;
+        }
+
         StartCoroutine(SpawnAdventurers());
     }
 
-    /*private void RemoveAllAdventurers()
+    public void OnAskButtonPressed()
     {
-        foreach (Adventurer adventurer in activeAdventurers)
+        if (currentAdventurerAtCounter == null) return;
+
+        int currentDay = GameResultsManager.Instance.GetCurrentDay();
+
+        // Always show mood as Good on Day 1
+        if (currentDay == 1)
         {
-            if (adventurer != null && adventurer.gameObject != null)
-            {
-                Destroy(adventurer.gameObject);
-            }
+            currentAdventurerAtCounter.mood = Mood.Good;
+            moodUI.text = "Mood: Good";
+            moodUI.gameObject.SetActive(true);
+
+            // Show random registration dialogue
+            string randomLine = registrationDialogues[UnityEngine.Random.Range(0, registrationDialogues.Count)];
+            dialogueText.text = $"{currentAdventurerAtCounter.name}: {randomLine}";
+            dialogueText.gameObject.SetActive(true);
+            return;
         }
 
-        activeAdventurers.Clear();
-    }*/
+        // Show mood UI from Day 2 onward
+        moodUI.text = $"Mood: {currentAdventurerAtCounter.mood}";
+        moodUI.gameObject.SetActive(true);
+
+        // Randomly determine if adventurer wants to change quest
+        currentAdventurerAtCounter.wantsToChangeQuest = UnityEngine.Random.value < 0.5f;
+
+        string response = currentAdventurerAtCounter.wantsToChangeQuest
+            ? changeQuestDialogues[UnityEngine.Random.Range(0, changeQuestDialogues.Count)]
+            : keepQuestDialogues[UnityEngine.Random.Range(0, keepQuestDialogues.Count)];
+
+        dialogueText.text = $"{currentAdventurerAtCounter.name}: {response}";
+        dialogueText.gameObject.SetActive(true);
+    }
+
+    IEnumerator HandleAdventurerQuit(Adventurer adventurer)
+    {
+        TMP_Text quittingText = Instantiate(new GameObject("QuitText"), transform).AddComponent<TMP_Text>();
+        quittingText.text = $"{adventurer.name} has left the guild.";
+        quittingText.fontSize = 28;
+        quittingText.alignment = TextAlignmentOptions.Center;
+        quittingText.color = Color.red;
+        quittingText.rectTransform.sizeDelta = new Vector2(400, 50);
+        quittingText.rectTransform.anchoredPosition = new Vector2(0, -100);
+
+        adventurer.daysToSkip = UnityEngine.Random.Range(2, 4); // Skip 2–3 days
+        yield return new WaitForSeconds(2f);
+
+        Destroy(quittingText.gameObject);
+    }
 }
 
 [System.Serializable]
