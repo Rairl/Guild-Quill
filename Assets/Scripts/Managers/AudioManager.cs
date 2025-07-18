@@ -29,7 +29,7 @@ public class AudioManager : MonoBehaviour
     private void Start()
     {
         // Start with BGM1 at 40% volume
-        SetBGMVolume(0.4f);
+        SetBGMVolume(0.2f);
         PlayBGM1();
     }
 

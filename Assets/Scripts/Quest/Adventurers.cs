@@ -13,14 +13,13 @@ public class Trait
 
 public class Adventurer
 {
-    //Traits
     public GameObject gameObject;
     public string name;
     public List<Trait> traits = new();
-    //Moods
     public Mood mood = Mood.Good;
     public bool wantsToChangeQuest = false;
     public int daysToSkip = 0;
+
     public Adventurer(GameObject obj, string name)
     {
         this.gameObject = obj;
@@ -29,8 +28,11 @@ public class Adventurer
 
     public void ChangeMood(int delta)
     {
-        int moodInt = Mathf.Clamp((int)mood + delta, 0, 3);
-        mood = (Mood)moodInt;
+        int oldMood = (int)mood;
+        int newMood = Mathf.Clamp(oldMood + delta, 0, 3);
+        mood = (Mood)newMood;
+
+        Debug.Log($"[Mood Change] {name}'s mood changed from {(Mood)oldMood} to {mood} (delta: {delta})");
     }
 
     public bool IsActive() => daysToSkip <= 0;

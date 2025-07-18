@@ -21,7 +21,9 @@ public class GameManager : MonoBehaviour
 
     //Main
     public GameObject levelMain;
-    public GameObject playerMain;  
+    public GameObject playerMain;
+
+    public GameObject drawerBlock;
 
     [Header("UI Elements")]
     public GameObject adventurerIDHolder;
@@ -34,13 +36,17 @@ public class GameManager : MonoBehaviour
     [Header("Dialogue and Mood UI")]
     public GameObject Image; // Adventurer image
     public TMP_Text moodUI; // Mood UI panel
+    public GameObject moodImage;
     public TMP_Text dialogueText;
+    public GameObject dialogueImage;
     public GameObject dialogueButton;
     public GameObject dialoguePanel;
+    public GameObject choicePanel;
 
     [Header("Audio")]
     public AudioSource audioSource;
-    public AudioClip ahwooooooSfx;
+    public AudioClip adventurerQuestSfx;
+    public AudioClip moodSFX;
 
     private List<Adventurer> activeAdventurers = new();
     private bool counterOccupied = false;
@@ -185,6 +191,8 @@ public class GameManager : MonoBehaviour
             // Days 2-7: Adventurers spawn continuously between 10:00am and 10:30pm
             while (!isDayOver)
             {
+                drawerBlock.SetActive(false);
+
                 float waitTime = UnityEngine.Random.Range(20f, 40f);
                 yield return new WaitForSeconds(waitTime);
 
@@ -207,6 +215,7 @@ public class GameManager : MonoBehaviour
 
                     // After a delay, attempt to move to the counter
                     StartCoroutine(AttemptMoveToCounter(adventurer, UnityEngine.Random.Range(10f, 25f)));
+
                 }
             }
         }
@@ -362,8 +371,8 @@ public class GameManager : MonoBehaviour
 
     public void CompleteQuestAndSendAdventurer()
     {
-        if (audioSource != null && ahwooooooSfx != null)
-            audioSource.PlayOneShot(ahwooooooSfx);
+        if (audioSource != null && adventurerQuestSfx != null)
+            audioSource.PlayOneShot(adventurerQuestSfx);
 
         if (currentAdventurerAtCounter != null)
             StartCoroutine(MoveAdventurerBack(currentAdventurerAtCounter));
@@ -376,7 +385,7 @@ public class GameManager : MonoBehaviour
             SetDayOver(true); // Stop new adventurers
             //RemoveAllAdventurers();
             GameResultsManager.Instance.ShowEndResults();
-            endDay();          
+            endDay();
         }
     }
 
@@ -454,37 +463,54 @@ public class GameManager : MonoBehaviour
 
         int currentDay = GameResultsManager.Instance.GetCurrentDay();
 
-        // Always show mood as Good on Day 1
-        if (currentDay == 1)
-        {
-            currentAdventurerAtCounter.mood = Mood.Good;
-            moodUI.text = "Mood: Good";
-            moodUI.gameObject.SetActive(true);
+        // DO NOT reset mood here! Just show mood as-is.
 
-            // Show random registration dialogue
-            string randomLine = registrationDialogues[UnityEngine.Random.Range(0, registrationDialogues.Count)];
-            dialogueText.text = $"{currentAdventurerAtCounter.name}: {randomLine}";
-            dialogueText.gameObject.SetActive(true);
-            return;
-        }
-
-        // Show mood UI from Day 2 onward
+        // Show mood UI
         moodUI.text = $"Mood: {currentAdventurerAtCounter.mood}";
         moodUI.gameObject.SetActive(true);
+        moodImage.gameObject.SetActive(true);
 
-        // Randomly determine if adventurer wants to change quest
-        currentAdventurerAtCounter.wantsToChangeQuest = UnityEngine.Random.value < 0.5f;
+        choicePanel.SetActive(true);
 
-        string response = currentAdventurerAtCounter.wantsToChangeQuest
-            ? changeQuestDialogues[UnityEngine.Random.Range(0, changeQuestDialogues.Count)]
-            : keepQuestDialogues[UnityEngine.Random.Range(0, keepQuestDialogues.Count)];
+        if (currentDay == 1)
+        {
+            // Registration dialogue only
+            currentAdventurerAtCounter.wantsToChangeQuest = false; // No quest changes on day 1
 
-        dialogueText.text = $"{currentAdventurerAtCounter.name}: {response}";
+            // Pick random registration dialogue
+            string randomLine = registrationDialogues[UnityEngine.Random.Range(0, registrationDialogues.Count)];
+            dialogueText.text = $"{currentAdventurerAtCounter.name}: {randomLine}";
+        }
+        else
+        {
+            // Randomly decide if adventurer wants to change quest
+            currentAdventurerAtCounter.wantsToChangeQuest = UnityEngine.Random.value < 0.5f;
+
+            if (currentAdventurerAtCounter.wantsToChangeQuest)
+            {
+                string randomLine = changeQuestDialogues[UnityEngine.Random.Range(0, changeQuestDialogues.Count)];
+                dialogueText.text = $"{currentAdventurerAtCounter.name}: {randomLine}";
+            }
+            else
+            {
+                string randomLine = keepQuestDialogues[UnityEngine.Random.Range(0, keepQuestDialogues.Count)];
+                dialogueText.text = $"{currentAdventurerAtCounter.name}: {randomLine}";
+            }
+        }
+
         dialogueText.gameObject.SetActive(true);
+        dialogueImage.gameObject.SetActive(true);
     }
 
     IEnumerator HandleAdventurerQuit(Adventurer adventurer)
     {
+        if (adventurer == null)
+        {
+            Debug.LogError("HandleAdventurerQuit called with null adventurer!");
+            yield break;
+        }
+
+        // Create a temporary UI text message
         TMP_Text quittingText = Instantiate(new GameObject("QuitText"), transform).AddComponent<TMP_Text>();
         quittingText.text = $"{adventurer.name} has left the guild.";
         quittingText.fontSize = 28;
@@ -493,10 +519,81 @@ public class GameManager : MonoBehaviour
         quittingText.rectTransform.sizeDelta = new Vector2(400, 50);
         quittingText.rectTransform.anchoredPosition = new Vector2(0, -100);
 
-        adventurer.daysToSkip = UnityEngine.Random.Range(2, 4); // Skip 2–3 days
+        // Wait 2 seconds so player can read it
         yield return new WaitForSeconds(2f);
 
+        // Destroy the message GameObject
         Destroy(quittingText.gameObject);
+
+        // Hide adventurer from the scene (optional)
+        if (adventurer.gameObject != null)
+            adventurer.gameObject.SetActive(false);
+
+    }
+
+    public void OnChoiceSelected(bool isAccepted)
+    {
+        if (currentAdventurerAtCounter == null) return;
+
+        int currentDay = GameResultsManager.Instance.GetCurrentDay();
+
+        // Block input if adventurer already quit
+        if (currentAdventurerAtCounter.mood == Mood.VeryBad)
+        {
+            Debug.Log("Adventurer already left the guild. Input blocked.");
+            return;
+        }
+
+        bool shouldLoseMood = false;
+        bool wantsToChange = currentAdventurerAtCounter.wantsToChangeQuest;
+
+        if (currentDay == 1)
+        {
+            // Day 1: Deny lowers mood, Accept no change
+            if (!isAccepted)
+                shouldLoseMood = true;
+        }
+        else
+        {
+            // Days 2-7:
+            // Deny when they want to keep = lose mood
+            // Accept when they want to change = lose mood
+            if ((!isAccepted && !wantsToChange) || (isAccepted && wantsToChange))
+                shouldLoseMood = true;
+        }
+
+        if (shouldLoseMood)
+        {
+            Debug.Log("Wrong choice! Mood will go down.");
+            currentAdventurerAtCounter.ChangeMood(+1);
+
+            if (audioSource && moodSFX)
+                audioSource.PlayOneShot(moodSFX);
+        }
+        else
+        {
+            Debug.Log("Correct choice. Mood stays.");
+        }
+
+        UpdateMoodUI();
+
+        if (currentAdventurerAtCounter.mood == Mood.VeryBad)
+        {
+            Debug.Log($"{currentAdventurerAtCounter.name} has quit the guild!");
+            StartCoroutine(HandleAdventurerQuit(currentAdventurerAtCounter));
+            choicePanel.SetActive(false);
+            return;
+        }
+
+        choicePanel.SetActive(false);
+    }
+
+    void UpdateMoodUI()
+    {
+        if (currentAdventurerAtCounter == null) return;
+
+        Debug.Log($"[UI] Updating mood: {currentAdventurerAtCounter.mood}");
+        moodUI.text = $"Mood: {currentAdventurerAtCounter.mood}";
     }
 }
 
