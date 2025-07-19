@@ -12,6 +12,9 @@ public class CounterController : MonoBehaviour
     [SerializeField] public GameObject mainLevel;
     [SerializeField] public GameObject mainSpawns;
     [SerializeField] public GameObject buttonOpen;
+    [SerializeField] public GameObject instruction1;
+    [SerializeField] public GameObject instruction2;
+    [SerializeField] public GameObject uiCanvas;
 
     public void StartDay()
     {
@@ -23,6 +26,9 @@ public class CounterController : MonoBehaviour
         mainLevel.SetActive(false);
         mainSpawns.SetActive(false);
         buttonOpen.SetActive(true);
+        instruction1.SetActive(false);
+        instruction2.SetActive(false);
+        uiCanvas.SetActive(true);
     }
 
     public bool dayActive()
@@ -40,5 +46,7 @@ public class CounterController : MonoBehaviour
         mainLevel.SetActive(true);
         mainSpawns.SetActive(true);
         buttonOpen.SetActive(false);
+        instruction1.SetActive(true);
+        instruction2.SetActive(true);
     }
 }

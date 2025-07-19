@@ -25,6 +25,9 @@ public class GameManager : MonoBehaviour
 
     public GameObject drawerBlock;
 
+    public GameObject endcreditsPanel;
+    public GameObject endcreditsScroll;
+
     [Header("UI Elements")]
     public GameObject adventurerIDHolder;
     public GameObject questHolder;
