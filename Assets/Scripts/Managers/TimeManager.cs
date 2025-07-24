@@ -4,33 +4,38 @@ using System;
 
 public class TimeManager : MonoBehaviour
 {
-
     [Header("UI")]
     public TMP_Text timerText;
+    public TMP_Text cycleSpeedButtonText;      // Text on the button
 
     [Header("Timing")]
-    public float incrementInterval = 1f; // Time in seconds between minute increments
+    public float incrementInterval = 1f;
 
     [Header("References")]
     public GameObject staticPlayer;
     public GameObject movingPlayer;
-    public CounterController activeCounter; // Replace 'ActiveCounter' with your actual class type
+    public CounterController activeCounter;
 
     private DateTime currentTime;
     private DateTime endTime;
     private float timer;
     private bool hasEnded = false;
 
+    private float[] speedLevels = { 1f, 4f, 6f };
+    private string[] speedLabels = { "x1", "x2", "x3" }; // Text shown on button
+    private int currentSpeedIndex = 0;
+    private float timeMultiplier = 1f;
+
     public static TimeManager Instance;
 
     void Start()
     {
-        Instance = this; // Singleton reference
+        Instance = this;
 
-        // Start at 9:00 AM and end at 11:00 PM
         currentTime = DateTime.Today.AddHours(9);
         endTime = DateTime.Today.AddHours(23);
 
+        SetTimeSpeed(speedLevels[currentSpeedIndex]); // Initialize with x1
         UpdateTimerDisplay();
     }
 
@@ -38,7 +43,7 @@ public class TimeManager : MonoBehaviour
     {
         if (hasEnded) return;
 
-        timer += Time.deltaTime;
+        timer += Time.deltaTime * timeMultiplier;
 
         if (timer >= incrementInterval)
         {
@@ -56,9 +61,7 @@ public class TimeManager : MonoBehaviour
     void UpdateTimerDisplay()
     {
         if (timerText != null)
-        {
             timerText.text = currentTime.ToString("hh:mm tt");
-        }
     }
 
     void EndTimerActions()
@@ -78,17 +81,32 @@ public class TimeManager : MonoBehaviour
         FindObjectOfType<GameManager>().SetDayOver(true);
     }
 
-    public DateTime GetCurrentTime()
-    {
-        return currentTime;
-    }
-
     public void StartNewDay()
     {
         currentTime = DateTime.Today.AddHours(9);
         endTime = DateTime.Today.AddHours(23);
         timer = 0f;
         hasEnded = false;
+        SetTimeSpeed(1f); // Reset to 1x
         UpdateTimerDisplay();
+    }
+
+    public void CycleTimeSpeed()
+    {
+        currentSpeedIndex = (currentSpeedIndex + 1) % speedLevels.Length;
+        SetTimeSpeed(speedLevels[currentSpeedIndex]);
+    }
+
+    private void SetTimeSpeed(float speed)
+    {
+        timeMultiplier = speed;
+
+        if (cycleSpeedButtonText != null)
+            cycleSpeedButtonText.text = speedLabels[currentSpeedIndex];
+    }
+
+    public DateTime GetCurrentTime()
+    {
+        return currentTime;
     }
 }

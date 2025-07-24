@@ -6,7 +6,6 @@ public class CounterController : MonoBehaviour
 {
     [SerializeField] public GameObject startDay;
     [SerializeField] public GameObject stamp;
-    [SerializeField] public GameObject questFlip;
     [SerializeField] public GameObject dayLevel;
     [SerializeField] public GameObject daySpawns;
     [SerializeField] public GameObject mainLevel;
@@ -20,7 +19,6 @@ public class CounterController : MonoBehaviour
     {
         startDay.SetActive(true);
         stamp.SetActive(true);
-        questFlip.SetActive(true);
         dayLevel.SetActive(true);
         daySpawns.SetActive(true);
         mainLevel.SetActive(false);
@@ -40,7 +38,6 @@ public class CounterController : MonoBehaviour
     {
         startDay.SetActive(false);
         stamp.SetActive(false);
-        questFlip.SetActive(false);
         dayLevel.SetActive(false);
         daySpawns.SetActive(false);
         mainLevel.SetActive(true);
