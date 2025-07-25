@@ -82,4 +82,9 @@ public class GameResultsManager : MonoBehaviour
         yield return new WaitForSeconds(2f);
         dayStartPanel.SetActive(false);
     }
+
+    public void IncrementDay()
+    {
+        currentDay++;
+    }
 }

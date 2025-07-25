@@ -38,6 +38,7 @@ public class GameManager : MonoBehaviour
 
     [Header("Dialogue and Mood UI")]
     public GameObject Image; // Adventurer image
+    public GameObject adventurerMood;
     public TMP_Text moodUI; // Mood UI panel
     public GameObject moodImage;
     public TMP_Text dialogueText;
@@ -135,6 +136,17 @@ public class GameManager : MonoBehaviour
     "Mind if I switch to something else?"
     };
 
+    // ---- NEW: Adventurer preset class ----
+    [System.Serializable] // NEW
+    public class AdventurerPreset // NEW
+    {
+        public string name; // NEW
+        public List<Trait> traits; // NEW
+    } // NEW
+
+    [Header("Adventurer Presets")] // NEW
+    public List<AdventurerPreset> adventurerPresets = new List<AdventurerPreset>(); // NEW
+
     public static GameManager Instance { get; private set; }
     public Adventurer CurrentAdventurer => currentAdventurerAtCounter;
 
@@ -176,17 +188,28 @@ public class GameManager : MonoBehaviour
                 });
 
                 GameObject adventurerObj = Instantiate(adventurerPrefab, adventurerEntry.position, Quaternion.identity);
-                string randomName = possibleNames[UnityEngine.Random.Range(0, possibleNames.Length)];
-                Adventurer adventurer = new(adventurerObj, randomName);
-                adventurer.traits.AddRange(RandomizeTraits(allPositiveTraits, 3));
-                adventurer.traits.AddRange(RandomizeTraits(allNegativeTraits, 2));
+                // EDITED: Assign name and traits from preset if available, else fallback to random
+                Adventurer adventurer;
+                if (i < adventurerPresets.Count)
+                {
+                    AdventurerPreset preset = adventurerPresets[i];
+                    adventurer = new Adventurer(adventurerObj, preset.name);
+                    adventurer.traits.AddRange(preset.traits);
+                }
+                else
+                {
+                    string randomName = possibleNames[UnityEngine.Random.Range(0, possibleNames.Length)];
+                    adventurer = new Adventurer(adventurerObj, randomName);
+                    adventurer.traits.AddRange(RandomizeTraits(allPositiveTraits, 3));
+                    adventurer.traits.AddRange(RandomizeTraits(allNegativeTraits, 2));
+                }
+
                 activeAdventurers.Add(adventurer);
 
                 yield return StartCoroutine(HandleDayOneRegistration(adventurer));
 
-                // Wait a random delay between 10 to 15 seconds before spawning next
                 float waitTime = UnityEngine.Random.Range(5f, 10f);
-                yield return new WaitForSeconds(waitTime);
+                yield return WaitForSecondsScaled(waitTime);
             }
         }
         else
@@ -197,7 +220,8 @@ public class GameManager : MonoBehaviour
                 drawerBlock.SetActive(false);
 
                 float waitTime = UnityEngine.Random.Range(20f, 40f);
-                yield return new WaitForSeconds(waitTime);
+                //yield return new WaitForSeconds(waitTime);
+                yield return WaitForSecondsScaled(waitTime);
 
                 DateTime currentTime = timeManager.GetCurrentTime();
                 Debug.Log($"Day {dayNumber} current time: {currentTime.TimeOfDay}");
@@ -206,10 +230,25 @@ public class GameManager : MonoBehaviour
                     currentTime.TimeOfDay <= new TimeSpan(23, 0, 0))
                 {
                     GameObject adventurerObj = Instantiate(adventurerPrefab, adventurerEntry.position, Quaternion.identity);
-                    string randomName = possibleNames[UnityEngine.Random.Range(0, possibleNames.Length)];
-                    Adventurer adventurer = new(adventurerObj, randomName);
-                    adventurer.traits.AddRange(RandomizeTraits(allPositiveTraits, 3));
-                    adventurer.traits.AddRange(RandomizeTraits(allNegativeTraits, 2));
+
+                    // EDITED: You can also use presets here if you want
+                    // Example: use random preset or fallback to random traits:
+                    Adventurer adventurer;
+                    int presetIndex = UnityEngine.Random.Range(0, adventurerPresets.Count);
+                    if (adventurerPresets.Count > 0 && presetIndex < adventurerPresets.Count)
+                    {
+                        AdventurerPreset preset = adventurerPresets[presetIndex];
+                        adventurer = new Adventurer(adventurerObj, preset.name);
+                        adventurer.traits.AddRange(preset.traits);
+                    }
+                    else
+                    {
+                        string randomName = possibleNames[UnityEngine.Random.Range(0, possibleNames.Length)];
+                        adventurer = new Adventurer(adventurerObj, randomName);
+                        adventurer.traits.AddRange(RandomizeTraits(allPositiveTraits, 3));
+                        adventurer.traits.AddRange(RandomizeTraits(allNegativeTraits, 2));
+                    }
+
                     activeAdventurers.Add(adventurer);
 
                     // Move to a random spawn point first
@@ -234,12 +273,14 @@ public class GameManager : MonoBehaviour
         currentAdventurerAtCounter = adventurer;
 
         yield return StartCoroutine(MoveToPosition(adventurer.gameObject, adventurerCounter.position));
+        TimeManager.Instance.PauseTime();
 
         // Show adventurer UI
         Image.SetActive(true);
         dialogueButton.SetActive(true);
         adventurerIDHolder.SetActive(true);
         questHolder.SetActive(true);
+        adventurerMood.SetActive(true);
 
         nameText.text = adventurer.name;
         traitsText.text = GetTraitsString(adventurer);
@@ -278,7 +319,8 @@ public class GameManager : MonoBehaviour
 
     IEnumerator AttemptMoveToCounter(Adventurer adventurer, float delay)
     {
-        yield return new WaitForSeconds(delay);
+        //yield return new WaitForSeconds(delay);
+        yield return WaitForSecondsScaled(delay);
         if (adventurer == null || isDayOver) yield break;
 
         if (counterOccupied)
@@ -291,12 +333,16 @@ public class GameManager : MonoBehaviour
         currentAdventurerAtCounter = adventurer;
 
         yield return StartCoroutine(MoveToPosition(adventurer.gameObject, adventurerCounter.position));
+        TimeManager.Instance.PauseTime();
 
         Image.SetActive(true);
         dialogueButton.SetActive(true);
 
         adventurerIDHolder.SetActive(true);
         questHolder.SetActive(true);
+
+        adventurerMood.SetActive(true);
+
 
         nameText.text = adventurer.name;
         traitsText.text = GetTraitsString(adventurer);
@@ -306,6 +352,16 @@ public class GameManager : MonoBehaviour
 
         questNameText.text = randomQuest.questName;
         questDescriptionText.text = randomQuest.questDescription;
+    }
+
+    IEnumerator WaitForSecondsScaled(float seconds)
+    {
+        float elapsed = 0f;
+        while (elapsed < seconds)
+        {
+            elapsed += Time.deltaTime * TimeManager.Instance.GetTimeMultiplier();
+            yield return null;
+        }
     }
 
     string GetTraitsString(Adventurer adventurer)
@@ -402,6 +458,8 @@ public class GameManager : MonoBehaviour
 
             activeAdventurers.Remove(adventurer);
             Destroy(adventurer.gameObject);
+
+            TimeManager.Instance.ResumeTime();
         }
 
         counterOccupied = false;
@@ -416,6 +474,7 @@ public class GameManager : MonoBehaviour
         Image.SetActive(false);
         dialogueButton.SetActive(false);
         dialoguePanel.SetActive(false);
+        adventurerMood.SetActive(false);
 
         nameText.text = "";
         traitsText.text = "";
@@ -598,6 +657,14 @@ public class GameManager : MonoBehaviour
         Debug.Log($"[UI] Updating mood: {currentAdventurerAtCounter.mood}");
         moodUI.text = $"Mood: {currentAdventurerAtCounter.mood}";
     }
+
+    public void ProceedToNextDay()
+    {
+       // GameResultsManager.Instance.IncrementDay();
+        timeManager.StartNewDay();
+        OnNewDayStart();
+    }
+
 }
 
 [System.Serializable]

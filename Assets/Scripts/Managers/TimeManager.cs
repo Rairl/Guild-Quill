@@ -26,6 +26,10 @@ public class TimeManager : MonoBehaviour
     private int currentSpeedIndex = 0;
     private float timeMultiplier = 1f;
 
+    public float GetTimeMultiplier() => timeMultiplier;
+
+    private bool isPausedByCounter = false;
+
     public static TimeManager Instance;
 
     private bool hasStartedDay = false;
@@ -43,9 +47,9 @@ public class TimeManager : MonoBehaviour
 
     void Update()
     {
-         if (hasEnded) return;
+        if (hasEnded || isPausedByCounter) return;
 
-    timer += Time.deltaTime * timeMultiplier;
+        timer += Time.deltaTime * timeMultiplier;
 
     if (timer >= incrementInterval)
     {
@@ -102,7 +106,7 @@ public class TimeManager : MonoBehaviour
         currentTime = DateTime.Today.AddHours(9);
         endTime = DateTime.Today.AddHours(23);
         timer = 0f;
-        hasEnded = false;
+        hasStartedDay = false;
         SetTimeSpeed(1f); // Reset to 1x
         UpdateTimerDisplay();
     }
@@ -121,8 +125,19 @@ public class TimeManager : MonoBehaviour
             cycleSpeedButtonText.text = speedLabels[currentSpeedIndex];
     }
 
+
     public DateTime GetCurrentTime()
     {
         return currentTime;
+    }
+
+    public void PauseTime()
+    {
+        isPausedByCounter = true;
+    }
+
+    public void ResumeTime()
+    {
+        isPausedByCounter = false;
     }
 }
