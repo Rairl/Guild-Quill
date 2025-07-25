@@ -140,4 +140,13 @@ public class TimeManager : MonoBehaviour
     {
         isPausedByCounter = false;
     }
+
+    public void SkipTo10AM()
+    {
+        if (currentTime < DateTime.Today.AddHours(10))
+        {
+            currentTime = DateTime.Today.AddHours(10);
+            UpdateTimerDisplay();
+        }
+    }
 }

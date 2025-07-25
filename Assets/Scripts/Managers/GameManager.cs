@@ -18,6 +18,8 @@ public class GameManager : MonoBehaviour
     //Static
     public GameObject levelStatic;
     public GameObject playerStatic;
+    public GameObject speedTime;
+    public GameObject skipTime;
 
     //Main
     public GameObject levelMain;
@@ -150,6 +152,9 @@ public class GameManager : MonoBehaviour
     public static GameManager Instance { get; private set; }
     public Adventurer CurrentAdventurer => currentAdventurerAtCounter;
 
+    private bool hasSpawnStarted = false;
+
+    private Coroutine spawnCoroutine; //--Just added
     private int dayNumber => GameResultsManager.Instance.GetCurrentDay();
 
     void Awake()
@@ -162,15 +167,25 @@ public class GameManager : MonoBehaviour
         if (audioSource == null)
             audioSource = GetComponent<AudioSource>();
 
-        StartCoroutine(SpawnAdventurers());
+        //StartCoroutine(SpawnAdventurers());
+        OnNewDayStart();
     }
 
     IEnumerator SpawnAdventurers()
     {
-        Debug.Log($"SpawnAdventurers started for Day {dayNumber}");
+        if (hasSpawnStarted)
+        {
+            Debug.LogWarning("SpawnAdventurers coroutine already running, skipping duplicate start.");
+            yield break;
+        }
+        hasSpawnStarted = true;
+
+        int spawnDay = dayNumber; // Capture day at coroutine start
+
+        Debug.Log($"SpawnAdventurers started for Day {spawnDay}");
         isDayOver = false;
 
-        if (dayNumber == 1)
+        if (spawnDay == 1)
         {
             for (int i = 0; i < 10; i++)
             {
@@ -180,7 +195,13 @@ public class GameManager : MonoBehaviour
                     yield break;
                 }
 
-                // Wait until between 10:00 AM and 11:00 PM
+                // If day changed, stop spawning immediately
+                if (dayNumber != spawnDay)
+                {
+                    Debug.Log($"Day changed from {spawnDay} to {dayNumber}, stopping Day 1 spawn.");
+                    yield break;
+                }
+
                 yield return new WaitUntil(() =>
                 {
                     var t = timeManager.GetCurrentTime().TimeOfDay;
@@ -188,40 +209,36 @@ public class GameManager : MonoBehaviour
                 });
 
                 GameObject adventurerObj = Instantiate(adventurerPrefab, adventurerEntry.position, Quaternion.identity);
-                // EDITED: Assign name and traits from preset if available, else fallback to random
-                Adventurer adventurer;
-                if (i < adventurerPresets.Count)
-                {
-                    AdventurerPreset preset = adventurerPresets[i];
-                    adventurer = new Adventurer(adventurerObj, preset.name);
-                    adventurer.traits.AddRange(preset.traits);
-                }
-                else
-                {
-                    string randomName = possibleNames[UnityEngine.Random.Range(0, possibleNames.Length)];
-                    adventurer = new Adventurer(adventurerObj, randomName);
-                    adventurer.traits.AddRange(RandomizeTraits(allPositiveTraits, 3));
-                    adventurer.traits.AddRange(RandomizeTraits(allNegativeTraits, 2));
-                }
+
+                AdventurerPreset preset = adventurerPresets[i];
+                Adventurer adventurer = new Adventurer(adventurerObj, preset.name);
+                adventurer.traits.AddRange(preset.traits);
 
                 activeAdventurers.Add(adventurer);
 
                 yield return StartCoroutine(HandleDayOneRegistration(adventurer));
 
-                float waitTime = UnityEngine.Random.Range(5f, 10f);
-                yield return WaitForSecondsScaled(waitTime);
+                yield return WaitForSecondsScaled(6f);
             }
+            yield break; // End coroutine here so day 2+ logic not run
         }
         else
         {
-            // Days 2-7: Adventurers spawn continuously between 10:00am and 10:30pm
-            while (!isDayOver)
-            {
-                drawerBlock.SetActive(false);
+            int adventurerCount = 0;
 
-                float waitTime = UnityEngine.Random.Range(20f, 40f);
-                //yield return new WaitForSeconds(waitTime);
-                yield return WaitForSecondsScaled(waitTime);
+            while (!isDayOver && adventurerCount < adventurerPresets.Count)
+            {
+                if (dayNumber != spawnDay)
+                {
+                    Debug.Log($"Day changed from {spawnDay} to {dayNumber}, stopping spawn.");
+                    yield break;
+                }
+
+                drawerBlock.SetActive(false);
+                speedTime.SetActive(false);
+                skipTime.SetActive(true);
+
+                yield return WaitForSecondsScaled(30f);
 
                 DateTime currentTime = timeManager.GetCurrentTime();
                 Debug.Log($"Day {dayNumber} current time: {currentTime.TimeOfDay}");
@@ -231,43 +248,27 @@ public class GameManager : MonoBehaviour
                 {
                     GameObject adventurerObj = Instantiate(adventurerPrefab, adventurerEntry.position, Quaternion.identity);
 
-                    // EDITED: You can also use presets here if you want
-                    // Example: use random preset or fallback to random traits:
-                    Adventurer adventurer;
-                    int presetIndex = UnityEngine.Random.Range(0, adventurerPresets.Count);
-                    if (adventurerPresets.Count > 0 && presetIndex < adventurerPresets.Count)
-                    {
-                        AdventurerPreset preset = adventurerPresets[presetIndex];
-                        adventurer = new Adventurer(adventurerObj, preset.name);
-                        adventurer.traits.AddRange(preset.traits);
-                    }
-                    else
-                    {
-                        string randomName = possibleNames[UnityEngine.Random.Range(0, possibleNames.Length)];
-                        adventurer = new Adventurer(adventurerObj, randomName);
-                        adventurer.traits.AddRange(RandomizeTraits(allPositiveTraits, 3));
-                        adventurer.traits.AddRange(RandomizeTraits(allNegativeTraits, 2));
-                    }
+                    AdventurerPreset preset = adventurerPresets[adventurerCount];
+                    Adventurer adventurer = new Adventurer(adventurerObj, preset.name);
+                    adventurer.traits.AddRange(preset.traits);
 
                     activeAdventurers.Add(adventurer);
 
-                    // Move to a random spawn point first
-                    Transform target = spawnPoints[UnityEngine.Random.Range(0, spawnPoints.Length)];
+                    Transform target = spawnPoints[adventurerCount % spawnPoints.Length];
                     StartCoroutine(MoveToPosition(adventurer.gameObject, target.position));
 
-                    // After a delay, attempt to move to the counter
-                    StartCoroutine(AttemptMoveToCounter(adventurer, UnityEngine.Random.Range(10f, 25f)));
+                    StartCoroutine(AttemptMoveToCounter(adventurer, 15f));
 
+                    adventurerCount++;
                 }
             }
         }
-        Debug.Log("SpawnAdventurers coroutine ended");
     }
 
     IEnumerator HandleDayOneRegistration(Adventurer adventurer)
     {
         while (counterOccupied)
-            yield return null; // wait if counter busy
+            yield return null;
 
         counterOccupied = true;
         currentAdventurerAtCounter = adventurer;
@@ -275,7 +276,6 @@ public class GameManager : MonoBehaviour
         yield return StartCoroutine(MoveToPosition(adventurer.gameObject, adventurerCounter.position));
         TimeManager.Instance.PauseTime();
 
-        // Show adventurer UI
         Image.SetActive(true);
         dialogueButton.SetActive(true);
         adventurerIDHolder.SetActive(true);
@@ -285,11 +285,9 @@ public class GameManager : MonoBehaviour
         nameText.text = adventurer.name;
         traitsText.text = GetTraitsString(adventurer);
 
-        // On Day 1, no quests, only registration
         questNameText.text = "Registering...";
         questDescriptionText.text = "";
 
-        // Wait for player to complete registration (e.g., stamping)
         yield return new WaitUntil(() => !counterOccupied);
     }
 
@@ -319,7 +317,6 @@ public class GameManager : MonoBehaviour
 
     IEnumerator AttemptMoveToCounter(Adventurer adventurer, float delay)
     {
-        //yield return new WaitForSeconds(delay);
         yield return WaitForSecondsScaled(delay);
         if (adventurer == null || isDayOver) yield break;
 
@@ -337,12 +334,9 @@ public class GameManager : MonoBehaviour
 
         Image.SetActive(true);
         dialogueButton.SetActive(true);
-
         adventurerIDHolder.SetActive(true);
         questHolder.SetActive(true);
-
         adventurerMood.SetActive(true);
-
 
         nameText.text = adventurer.name;
         traitsText.text = GetTraitsString(adventurer);
@@ -490,6 +484,7 @@ public class GameManager : MonoBehaviour
         playerStatic.SetActive(false);
         levelMain.SetActive(true);
         playerMain.SetActive(true);
+
     }
 
     public void SetDayOver(bool isOver)
@@ -507,16 +502,24 @@ public class GameManager : MonoBehaviour
     public void OnNewDayStart()
     {
         Debug.Log($"Starting Day {dayNumber}");
+
+        // Stop any existing spawn coroutine before starting new day
+        if (spawnCoroutine != null)
+        {
+            StopCoroutine(spawnCoroutine);
+            spawnCoroutine = null;
+        }
+
+        hasSpawnStarted = false;
         isDayOver = false;
         adventurersStampedToday = 0;
 
-        foreach (var adventurer in activeAdventurers)
+        foreach (var adv in activeAdventurers)
         {
-            if (adventurer.daysToSkip > 0)
-                adventurer.daysToSkip--;
+            if (adv.daysToSkip > 0) adv.daysToSkip--;
         }
 
-        StartCoroutine(SpawnAdventurers());
+        spawnCoroutine = StartCoroutine(SpawnAdventurers());
     }
 
     public void OnAskButtonPressed()
@@ -660,7 +663,7 @@ public class GameManager : MonoBehaviour
 
     public void ProceedToNextDay()
     {
-       // GameResultsManager.Instance.IncrementDay();
+        //GameResultsManager.Instance.IncrementDay();
         timeManager.StartNewDay();
         OnNewDayStart();
     }

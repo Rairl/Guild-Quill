@@ -83,8 +83,8 @@ public class GameResultsManager : MonoBehaviour
         dayStartPanel.SetActive(false);
     }
 
-    public void IncrementDay()
+    /*public void IncrementDay()
     {
-        currentDay++;
-    }
+        currentDay += 1;
+    }*/
 }
