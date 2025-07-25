@@ -14,6 +14,7 @@ public class CounterController : MonoBehaviour
     [SerializeField] public GameObject instruction1;
     [SerializeField] public GameObject instruction2;
     [SerializeField] public GameObject uiCanvas;
+    [SerializeField] public GameObject GlowCircle;
 
     public void StartDay()
     {
@@ -26,6 +27,7 @@ public class CounterController : MonoBehaviour
         buttonOpen.SetActive(true);
         instruction1.SetActive(false);
         instruction2.SetActive(false);
+        GlowCircle.SetActive(false);
         uiCanvas.SetActive(true);
     }
 

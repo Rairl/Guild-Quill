@@ -28,6 +28,8 @@ public class TimeManager : MonoBehaviour
 
     public static TimeManager Instance;
 
+    private bool hasStartedDay = false;
+
     void Start()
     {
         Instance = this;
@@ -41,21 +43,35 @@ public class TimeManager : MonoBehaviour
 
     void Update()
     {
-        if (hasEnded) return;
+         if (hasEnded) return;
 
-        timer += Time.deltaTime * timeMultiplier;
+    timer += Time.deltaTime * timeMultiplier;
 
-        if (timer >= incrementInterval)
+    if (timer >= incrementInterval)
+    {
+        timer = 0f;
+        currentTime = currentTime.AddMinutes(1);
+        UpdateTimerDisplay();
+
+        // START DAY AT 10:00 AM
+        if (!hasStartedDay && currentTime >= DateTime.Today.AddHours(10))
         {
-            timer = 0f;
-            currentTime = currentTime.AddMinutes(1);
-            UpdateTimerDisplay();
+            hasStartedDay = true;
 
-            if (currentTime >= endTime)
-            {
-                EndTimerActions();
-            }
+                // Set active static player
+                movingPlayer.SetActive(false);
+                staticPlayer.SetActive(true);
+
+                if (activeCounter != null)
+                activeCounter.StartDay();
         }
+
+        // END DAY AT END TIME
+        if (currentTime >= endTime)
+        {
+            EndTimerActions();
+        }
+    }
     }
 
     void UpdateTimerDisplay()
