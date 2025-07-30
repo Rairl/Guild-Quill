@@ -181,7 +181,6 @@ public class GameManager : MonoBehaviour
         hasSpawnStarted = true;
 
         int spawnDay = dayNumber; // Capture day at coroutine start
-
         Debug.Log($"SpawnAdventurers started for Day {spawnDay}");
         isDayOver = false;
 
@@ -189,16 +188,9 @@ public class GameManager : MonoBehaviour
         {
             for (int i = 0; i < 10; i++)
             {
-                if (isDayOver)
+                if (isDayOver || dayNumber != spawnDay)
                 {
-                    Debug.Log("Day 1 ended early, stopping spawning.");
-                    yield break;
-                }
-
-                // If day changed, stop spawning immediately
-                if (dayNumber != spawnDay)
-                {
-                    Debug.Log($"Day changed from {spawnDay} to {dayNumber}, stopping Day 1 spawn.");
+                    Debug.Log($"Day {spawnDay} ended early, stopping spawn.");
                     yield break;
                 }
 
@@ -220,7 +212,39 @@ public class GameManager : MonoBehaviour
 
                 yield return WaitForSecondsScaled(6f);
             }
-            yield break; // End coroutine here so day 2+ logic not run
+
+            yield break; // Skip default flow
+        }
+        else if (spawnDay == 5)
+        {
+            for (int i = 0; i < 10; i++)
+            {
+                if (isDayOver || dayNumber != spawnDay)
+                {
+                    Debug.Log($"Day {spawnDay} ended early, stopping spawn.");
+                    yield break;
+                }
+
+                yield return new WaitUntil(() =>
+                {
+                    var t = timeManager.GetCurrentTime().TimeOfDay;
+                    return t >= new TimeSpan(10, 0, 0) && t <= new TimeSpan(23, 0, 0);
+                });
+
+                GameObject adventurerObj = Instantiate(adventurerPrefab, adventurerEntry.position, Quaternion.identity);
+
+                AdventurerPreset preset = adventurerPresets[i];
+                Adventurer adventurer = new Adventurer(adventurerObj, preset.name);
+                adventurer.traits.AddRange(preset.traits);
+
+                activeAdventurers.Add(adventurer);
+
+                yield return StartCoroutine(HandleDayFiveRaid(adventurer));
+
+                yield return WaitForSecondsScaled(6f);
+            }
+
+            yield break; // Skip default flow
         }
         else
         {
@@ -291,6 +315,31 @@ public class GameManager : MonoBehaviour
         yield return new WaitUntil(() => !counterOccupied);
     }
 
+    IEnumerator HandleDayFiveRaid(Adventurer adventurer)
+    {
+        while (counterOccupied)
+            yield return null;
+
+        counterOccupied = true;
+        currentAdventurerAtCounter = adventurer;
+
+        yield return StartCoroutine(MoveToPosition(adventurer.gameObject, adventurerCounter.position));
+        TimeManager.Instance.PauseTime();
+
+        Image.SetActive(true);
+        dialogueButton.SetActive(true);
+        adventurerIDHolder.SetActive(true);
+        questHolder.SetActive(true);
+        adventurerMood.SetActive(true);
+
+        nameText.text = adventurer.name;
+        traitsText.text = GetTraitsString(adventurer);
+
+        questNameText.text = "Raid";
+        questDescriptionText.text = "";
+
+        yield return new WaitUntil(() => !counterOccupied);
+    }
     List<Trait> RandomizeTraits(List<Trait> pool, int max)
     {
         List<Trait> selected = new();

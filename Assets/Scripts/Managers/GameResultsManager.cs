@@ -52,7 +52,7 @@ public class GameResultsManager : MonoBehaviour
         currentDay++;
         endResultsPanel.SetActive(false);
 
-        if (currentDay > 7)
+        if (currentDay > 5)
         {
             GameManager.Instance.endcreditsPanel.SetActive(true);
             GameManager.Instance.endcreditsScroll.SetActive(true);
