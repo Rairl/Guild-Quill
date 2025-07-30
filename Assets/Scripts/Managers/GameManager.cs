@@ -138,15 +138,38 @@ public class GameManager : MonoBehaviour
     "Mind if I switch to something else?"
     };
 
-    // ---- NEW: Adventurer preset class ----
-    [System.Serializable] // NEW
-    public class AdventurerPreset // NEW
+    private Dictionary<string, float> traitModifiers = new Dictionary<string, float>()
     {
-        public string name; // NEW
-        public List<Trait> traits; // NEW
-    } // NEW
+     { "reliable", 0.1f },
+     { "short tempered", -0.05f },
+     { "charismatic", 0.05f },
+     { "loyal", 0.05f },
+     { "strategist", 0.15f },
+     { "clumsy", -0.1f },
+     { "resilient", 0.1f },
+     { "distracted", -0.1f },
+     { "quick learner", 0.08f },
+     { "gifted", 0.1f },
+     { "cowardly", -0.15f },
+     { "arrogant", -0.05f },
+     { "empathic", 0.05f },
+     { "resourceful", 0.1f },
+     { "injury prone", -0.1f },
+     { "hard working", 0.07f },
+     { "impulsive", -0.07f },
+     { "greedy", -0.1f },
+     { "superstitious", -0.05f }
+    };
 
-    [Header("Adventurer Presets")] // NEW
+    // ---- Adventurer preset class ----
+    [System.Serializable] // NEW
+    public class AdventurerPreset
+    {
+        public string name;
+        public List<Trait> traits;
+    }
+
+    [Header("Adventurer Presets")]
     public List<AdventurerPreset> adventurerPresets = new List<AdventurerPreset>(); // NEW
 
     public static GameManager Instance { get; private set; }
@@ -154,7 +177,7 @@ public class GameManager : MonoBehaviour
 
     private bool hasSpawnStarted = false;
 
-    private Coroutine spawnCoroutine; //--Just added
+    private Coroutine spawnCoroutine;
     private int dayNumber => GameResultsManager.Instance.GetCurrentDay();
 
     void Awake()
@@ -335,10 +358,40 @@ public class GameManager : MonoBehaviour
         nameText.text = adventurer.name;
         traitsText.text = GetTraitsString(adventurer);
 
+        // Calculate and show raid success chance
+        float successChance = CalculateRaidSuccessChance(adventurer);
+        int percentChance = Mathf.RoundToInt(successChance * 100f);
+
         questNameText.text = "Raid";
-        questDescriptionText.text = "";
+        questDescriptionText.text = $"Estimated Success Rate: {percentChance}%";
 
         yield return new WaitUntil(() => !counterOccupied);
+    }
+
+    public float CalculateRaidSuccessChance(Adventurer adventurer)
+    {
+        float baseSuccessRate = 0.5f;
+        float traitModifierSum = 0f;
+
+        foreach (Trait trait in adventurer.traits)
+        {
+            string traitName = trait.name.Trim().ToLowerInvariant(); // FIXED
+            Debug.Log($"Trait: {traitName}");
+
+            if (traitModifiers.TryGetValue(traitName, out float modifier))
+            {
+                traitModifierSum += modifier;
+                Debug.Log($"  Modifier applied: {modifier}");
+            }
+            else
+            {
+                Debug.LogWarning($"Trait '{traitName}' NOT found in modifier list.");
+            }
+        }
+
+        float finalChance = Mathf.Clamp01(baseSuccessRate + traitModifierSum);
+        Debug.Log($"Final Raid Success Chance for {adventurer.name}: {finalChance * 100}%");
+        return finalChance;
     }
     List<Trait> RandomizeTraits(List<Trait> pool, int max)
     {
