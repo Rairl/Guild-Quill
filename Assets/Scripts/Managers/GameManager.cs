@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using System;
 using TMPro;
+using System.Linq; // helps you work with lists more easily.
 
 public class GameManager : MonoBehaviour
 {
@@ -40,7 +41,6 @@ public class GameManager : MonoBehaviour
 
     [Header("Dialogue and Mood UI")]
     public GameObject Image; // Adventurer image
-    public GameObject adventurerMood;
     public TMP_Text moodUI; // Mood UI panel
     public GameObject moodImage;
     public TMP_Text dialogueText;
@@ -170,7 +170,9 @@ public class GameManager : MonoBehaviour
     }
 
     [Header("Adventurer Presets")]
-    public List<AdventurerPreset> adventurerPresets = new List<AdventurerPreset>(); // NEW
+    public List<AdventurerPreset> adventurerPresets = new List<AdventurerPreset>();
+
+    private List<Adventurer> allAdventurers = new(); // Mood
 
     public static GameManager Instance { get; private set; }
     public Adventurer CurrentAdventurer => currentAdventurerAtCounter;
@@ -203,7 +205,7 @@ public class GameManager : MonoBehaviour
         }
         hasSpawnStarted = true;
 
-        int spawnDay = dayNumber; // Capture day at coroutine start
+        int spawnDay = dayNumber;
         Debug.Log($"SpawnAdventurers started for Day {spawnDay}");
         isDayOver = false;
 
@@ -211,12 +213,6 @@ public class GameManager : MonoBehaviour
         {
             for (int i = 0; i < 10; i++)
             {
-                if (isDayOver || dayNumber != spawnDay)
-                {
-                    Debug.Log($"Day {spawnDay} ended early, stopping spawn.");
-                    yield break;
-                }
-
                 yield return new WaitUntil(() =>
                 {
                     var t = timeManager.GetCurrentTime().TimeOfDay;
@@ -224,19 +220,20 @@ public class GameManager : MonoBehaviour
                 });
 
                 GameObject adventurerObj = Instantiate(adventurerPrefab, adventurerEntry.position, Quaternion.identity);
-
                 AdventurerPreset preset = adventurerPresets[i];
+
                 Adventurer adventurer = new Adventurer(adventurerObj, preset.name);
                 adventurer.traits.AddRange(preset.traits);
+                adventurer.mood = Mood.Good;
 
+                allAdventurers.Add(adventurer); // ONLY DAY 1
                 activeAdventurers.Add(adventurer);
 
                 yield return StartCoroutine(HandleDayOneRegistration(adventurer));
-
                 yield return WaitForSecondsScaled(6f);
             }
 
-            yield break; // Skip default flow
+            yield break;
         }
         else if (spawnDay == 5)
         {
@@ -254,20 +251,14 @@ public class GameManager : MonoBehaviour
                     return t >= new TimeSpan(10, 0, 0) && t <= new TimeSpan(23, 0, 0);
                 });
 
-                GameObject adventurerObj = Instantiate(adventurerPrefab, adventurerEntry.position, Quaternion.identity);
-
-                AdventurerPreset preset = adventurerPresets[i];
-                Adventurer adventurer = new Adventurer(adventurerObj, preset.name);
-                adventurer.traits.AddRange(preset.traits);
-
+                Adventurer adventurer = SpawnOrReuseAdventurer(adventurerPresets[i]);
                 activeAdventurers.Add(adventurer);
 
                 yield return StartCoroutine(HandleDayFiveRaid(adventurer));
-
                 yield return WaitForSecondsScaled(6f);
             }
 
-            yield break; // Skip default flow
+            yield break;
         }
         else
         {
@@ -293,23 +284,41 @@ public class GameManager : MonoBehaviour
                 if (currentTime.TimeOfDay >= new TimeSpan(10, 0, 0) &&
                     currentTime.TimeOfDay <= new TimeSpan(23, 0, 0))
                 {
-                    GameObject adventurerObj = Instantiate(adventurerPrefab, adventurerEntry.position, Quaternion.identity);
-
-                    AdventurerPreset preset = adventurerPresets[adventurerCount];
-                    Adventurer adventurer = new Adventurer(adventurerObj, preset.name);
-                    adventurer.traits.AddRange(preset.traits);
-
+                    Adventurer adventurer = SpawnOrReuseAdventurer(adventurerPresets[adventurerCount]);
                     activeAdventurers.Add(adventurer);
 
                     Transform target = spawnPoints[adventurerCount % spawnPoints.Length];
                     StartCoroutine(MoveToPosition(adventurer.gameObject, target.position));
-
                     StartCoroutine(AttemptMoveToCounter(adventurer, 15f));
 
                     adventurerCount++;
                 }
             }
         }
+    }
+
+    private Adventurer SpawnOrReuseAdventurer(AdventurerPreset preset)
+    {
+        Adventurer existing = allAdventurers.FirstOrDefault(a => a.name == preset.name);
+        if (existing != null)
+        {
+            GameObject obj = Instantiate(adventurerPrefab, adventurerEntry.position, Quaternion.identity);
+            existing.gameObject = obj;
+
+            Debug.Log($"[SpawnOrReuse] Reusing adventurer {existing.name} with mood: {existing.mood}");
+            return existing;
+        }
+
+        // Only for Day 1 creation
+        GameObject newObj = Instantiate(adventurerPrefab, adventurerEntry.position, Quaternion.identity);
+        Adventurer newAdventurer = new Adventurer(newObj, preset.name);
+        newAdventurer.traits.AddRange(preset.traits);
+        newAdventurer.mood = Mood.Good;
+
+        allAdventurers.Add(newAdventurer);
+        Debug.Log($"[SpawnOrReuse] Creating new adventurer {newAdventurer.name}");
+
+        return newAdventurer;
     }
 
     IEnumerator HandleDayOneRegistration(Adventurer adventurer)
@@ -327,7 +336,6 @@ public class GameManager : MonoBehaviour
         dialogueButton.SetActive(true);
         adventurerIDHolder.SetActive(true);
         questHolder.SetActive(true);
-        adventurerMood.SetActive(true);
 
         nameText.text = adventurer.name;
         traitsText.text = GetTraitsString(adventurer);
@@ -353,7 +361,6 @@ public class GameManager : MonoBehaviour
         dialogueButton.SetActive(true);
         adventurerIDHolder.SetActive(true);
         questHolder.SetActive(true);
-        adventurerMood.SetActive(true);
 
         nameText.text = adventurer.name;
         traitsText.text = GetTraitsString(adventurer);
@@ -438,7 +445,6 @@ public class GameManager : MonoBehaviour
         dialogueButton.SetActive(true);
         adventurerIDHolder.SetActive(true);
         questHolder.SetActive(true);
-        adventurerMood.SetActive(true);
 
         nameText.text = adventurer.name;
         traitsText.text = GetTraitsString(adventurer);
@@ -570,7 +576,6 @@ public class GameManager : MonoBehaviour
         Image.SetActive(false);
         dialogueButton.SetActive(false);
         dialoguePanel.SetActive(false);
-        adventurerMood.SetActive(false);
 
         nameText.text = "";
         traitsText.text = "";
@@ -678,7 +683,11 @@ public class GameManager : MonoBehaviour
         }
 
         // Create a temporary UI text message
-        TMP_Text quittingText = Instantiate(new GameObject("QuitText"), transform).AddComponent<TMP_Text>();
+        var quitGO = new GameObject("QuitText");
+        quitGO.transform.SetParent(transform);
+
+        TMP_Text quittingText = quitGO.AddComponent<TextMeshProUGUI>();  // For UI canvas
+        quittingText.font = Resources.GetBuiltinResource<TMP_FontAsset>("LiberationSans SDF.asset"); // or assign your TMP font
         quittingText.text = $"{adventurer.name} has left the guild.";
         quittingText.fontSize = 28;
         quittingText.alignment = TextAlignmentOptions.Center;
