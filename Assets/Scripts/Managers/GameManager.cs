@@ -38,6 +38,7 @@ public class GameManager : MonoBehaviour
     public TMP_Text traitsText;
     public TMP_Text questNameText;
     public TMP_Text questDescriptionText;
+    public GameObject TraitsQuestOpen;
 
     [Header("Dialogue and Mood UI")]
     public GameObject Image; // Adventurer image
@@ -62,6 +63,7 @@ public class GameManager : MonoBehaviour
     private QuestData currentProvidedQuest = null;
 
     private int adventurersStampedToday = 0;
+    private List<QuestResult> questResultsToday = new();
 
     private readonly string[] possibleNames = {
         "Cylix", "Pavel", "Terys", "Aria", "Minetta", "Dana", "Nindr", "Saevel", "Gildir",
@@ -161,6 +163,34 @@ public class GameManager : MonoBehaviour
      { "superstitious", -0.05f }
     };
 
+    private Dictionary<string, List<string>> questTraitBonuses = new()
+    {
+        { "Herbalist’s Request", new List<string> { "Resourceful", "Reliable" } },
+        { "Lost Heirloom", new List<string> { "Charismatic", "Strategist" } },
+        { "Goblin Encroachment", new List<string> { "Resilient", "Strategist" } },
+        { "Ancient Ruins Survey", new List<string> { "Quick Learner", "Gifted" } },
+        { "Trade Route Patrol", new List<string> { "Reliable", "Loyal" } },
+        { "Haunted Manor Investigation", new List<string> { "Empathic", "Resilient" } },
+        { "Beast Hunt: Dire Boar", new List<string> { "Hardy", "Strategist" } },
+        { "Diplomatic Escort", new List<string> { "Charismatic", "Loyal" } },
+        { "Mine Disaster Response", new List<string> { "Resourceful", "Resilient" } },
+        { "Cult Disruption", new List<string> { "Strategist", "Gifted" } }
+    };
+
+    private Dictionary<string, List<string>> questTraitPenalties = new()
+    {
+        { "Herbalist’s Request", new List<string> { "Clumsy", "Distracted" } },
+        { "Lost Heirloom", new List<string> { "Impulsive", "Selfish" } },
+        { "Goblin Encroachment", new List<string> { "Cowardly", "Arrogant" } },
+        { "Ancient Ruins Survey", new List<string> { "Superstitious", "Injury Prone" } },
+        { "Trade Route Patrol", new List<string> { "Unreliable", "Distracted" } },
+        { "Haunted Manor Investigation", new List<string> { "Superstitious", "Cowardly" } },
+        { "Beast Hunt: Dire Boar", new List<string> { "Injury Prone", "Clumsy" } },
+        { "Diplomatic Escort", new List<string> { "Arrogant", "Greedy" } },
+        { "Mine Disaster Response", new List<string> { "Distracted", "Clumsy" } },
+        { "Cult Disruption", new List<string> { "Impulsive", "Cowardly" } }
+    };
+
     // ---- Adventurer preset class ----
     [System.Serializable] // NEW
     public class AdventurerPreset
@@ -254,7 +284,7 @@ public class GameManager : MonoBehaviour
                 Adventurer adventurer = SpawnOrReuseAdventurer(adventurerPresets[i]);
                 activeAdventurers.Add(adventurer);
 
-                yield return StartCoroutine(HandleDayFiveRaid(adventurer));
+                yield return StartCoroutine(HandleDayFiveRaid());
                 yield return WaitForSecondsScaled(6f);
             }
 
@@ -275,6 +305,7 @@ public class GameManager : MonoBehaviour
                 drawerBlock.SetActive(false);
                 speedTime.SetActive(false);
                 skipTime.SetActive(true);
+                TraitsQuestOpen.SetActive(true);
 
                 yield return WaitForSecondsScaled(30f);
 
@@ -346,15 +377,20 @@ public class GameManager : MonoBehaviour
         yield return new WaitUntil(() => !counterOccupied);
     }
 
-    IEnumerator HandleDayFiveRaid(Adventurer adventurer)
+    IEnumerator HandleDayFiveRaid()
     {
         while (counterOccupied)
             yield return null;
 
         counterOccupied = true;
-        currentAdventurerAtCounter = adventurer;
 
-        yield return StartCoroutine(MoveToPosition(adventurer.gameObject, adventurerCounter.position));
+        // For example, you can pick the first adventurer as the "main" one at the counter:
+        if (activeAdventurers.Count == 0) yield break;
+
+        Adventurer mainAdventurer = activeAdventurers[0];
+        currentAdventurerAtCounter = mainAdventurer;
+
+        yield return StartCoroutine(MoveToPosition(mainAdventurer.gameObject, adventurerCounter.position));
         TimeManager.Instance.PauseTime();
 
         Image.SetActive(true);
@@ -362,44 +398,48 @@ public class GameManager : MonoBehaviour
         adventurerIDHolder.SetActive(true);
         questHolder.SetActive(true);
 
-        nameText.text = adventurer.name;
-        traitsText.text = GetTraitsString(adventurer);
+        nameText.text = "Raid Party";
+        traitsText.text = string.Join(", ", activeAdventurers.Select(a => a.name).ToArray());
 
-        // Calculate and show raid success chance
-        float successChance = CalculateRaidSuccessChance(adventurer);
+        float successChance = CalculateRaidSuccessChance(activeAdventurers);
         int percentChance = Mathf.RoundToInt(successChance * 100f);
 
-        questNameText.text = "Raid";
-        questDescriptionText.text = $"Estimated Success Rate: {percentChance}%";
+        questNameText.text = "Emergency Request";
+        questDescriptionText.text = "Goblins are attacking the village! The Goblin King leads them. Defend the town and stop him before it’s too late!";
 
         yield return new WaitUntil(() => !counterOccupied);
     }
 
-    public float CalculateRaidSuccessChance(Adventurer adventurer)
+    public float CalculateRaidSuccessChance(List<Adventurer> adventurers)
     {
-        float baseSuccessRate = 0.5f;
-        float traitModifierSum = 0f;
+        float baseRate = 0.5f;
+        float moodSum = 0f;
 
-        foreach (Trait trait in adventurer.traits)
+        foreach (var adv in adventurers)
         {
-            string traitName = trait.name.Trim().ToLowerInvariant(); // FIXED
-            Debug.Log($"Trait: {traitName}");
-
-            if (traitModifiers.TryGetValue(traitName, out float modifier))
-            {
-                traitModifierSum += modifier;
-                Debug.Log($"  Modifier applied: {modifier}");
-            }
-            else
-            {
-                Debug.LogWarning($"Trait '{traitName}' NOT found in modifier list.");
-            }
+            float mod = GetMoodModifier(adv.mood);
+            moodSum += mod;
+            Debug.Log($"[RAID] {adv.name} mood: {adv.mood}, modifier: {mod}");
         }
 
-        float finalChance = Mathf.Clamp01(baseSuccessRate + traitModifierSum);
-        Debug.Log($"Final Raid Success Chance for {adventurer.name}: {finalChance * 100}%");
+        float avgMoodModifier = moodSum / adventurers.Count;
+        float finalChance = Mathf.Clamp01(baseRate + avgMoodModifier);
+
+        Debug.Log($"[RAID] Average mood modifier: {avgMoodModifier}, Final raid chance: {finalChance * 100}%");
         return finalChance;
     }
+
+    private float GetMoodModifier(Mood mood)
+{
+    switch (mood)
+    {
+        case Mood.Good:     return  0.0f;
+        case Mood.Neutral:  return -0.15f;
+        case Mood.Bad:      return -0.3f;
+        case Mood.VeryBad:  return -0.45f;
+        default:            return  0f;
+    }
+}
     List<Trait> RandomizeTraits(List<Trait> pool, int max)
     {
         List<Trait> selected = new();
@@ -491,26 +531,58 @@ public class GameManager : MonoBehaviour
     {
         if (currentAdventurerAtCounter == null || questToUse == null) return;
 
-        // Check if player ignored adventurer's request
         bool ignoredRequest = currentAdventurerAtCounter.wantsToChangeQuest && questToUse == GetAdventurerProvidedQuest();
-
         if (ignoredRequest)
-        {
-            currentAdventurerAtCounter.ChangeMood(+1); // Mood gets worse
-        }
+            currentAdventurerAtCounter.ChangeMood(+1);
 
-        // Quest success logic
-        float baseRate = 0.8f;
+        float baseRate = 0.5f;
         float bonus = 0f;
+
+        Debug.Log($"[StampQuest] Evaluating success for adventurer: {currentAdventurerAtCounter.name}");
+        Debug.Log($"Base success rate: {baseRate * 100}%");
+        Debug.Log($"Quest: {questToUse.questName}");
 
         foreach (var trait in currentAdventurerAtCounter.traits)
         {
-            if (trait.name == "Reliable")
-                bonus += 0.05f;
+            string traitName = trait.name.Trim();
+            string traitKey = traitName.ToLowerInvariant();
+
+            // Global modifier
+            if (traitModifiers.TryGetValue(traitKey, out float globalMod))
+            {
+                bonus += globalMod;
+                Debug.Log($" - [Global Trait] {traitName}: {globalMod:+0.00;-0.00}");
+            }
+
+            // Quest-specific bonus
+            if (questTraitBonuses.TryGetValue(questToUse.questName, out var bonusTraits))
+            {
+                if (bonusTraits.Any(bt => string.Equals(bt.Trim(), traitName, StringComparison.OrdinalIgnoreCase)))
+                {
+                    bonus += 0.1f;
+                    Debug.Log($" - [Quest Bonus] {traitName} matches bonus list for \"{questToUse.questName}\": +0.10");
+                }
+            }
+
+            // Quest-specific penalty
+            if (questTraitPenalties.TryGetValue(questToUse.questName, out var penaltyTraits))
+            {
+                if (penaltyTraits.Any(pt => string.Equals(pt.Trim(), traitName, StringComparison.OrdinalIgnoreCase)))
+                {
+                    bonus -= 0.1f;
+                    Debug.Log($" - [Quest Penalty] {traitName} matches penalty list for \"{questToUse.questName}\": -0.10");
+                }
+            }
         }
 
         float finalRate = Mathf.Clamp01(baseRate + bonus);
+        Debug.Log($"[Final Chance] Success chance for \"{questToUse.questName}\": {finalRate * 100:F1}%");
+
         bool success = UnityEngine.Random.value <= finalRate;
+        GameResultsManager.Instance.AddQuestResult(new QuestResult(currentAdventurerAtCounter.name,questToUse.questName,currentAdventurerAtCounter.mood,success));
+        Debug.Log(success
+            ? $"[RESULT] Quest succeeded! (+100 gold)"
+            : $"[RESULT] Quest failed. Mood worsens.");
 
         if (success)
         {
@@ -518,15 +590,9 @@ public class GameManager : MonoBehaviour
         }
         else
         {
-            currentAdventurerAtCounter.ChangeMood(+1); // Failure = mood drops
+            currentAdventurerAtCounter.ChangeMood(+1);
         }
-
-        // Check if adventurer leaves
-        if (currentAdventurerAtCounter.mood == Mood.VeryBad)
-        {
-            StartCoroutine(HandleAdventurerQuit(currentAdventurerAtCounter));
-        }
-
+     
         CompleteQuestAndSendAdventurer();
     }
 
@@ -674,39 +740,6 @@ public class GameManager : MonoBehaviour
         dialogueImage.gameObject.SetActive(true);
     }
 
-    IEnumerator HandleAdventurerQuit(Adventurer adventurer)
-    {
-        if (adventurer == null)
-        {
-            Debug.LogError("HandleAdventurerQuit called with null adventurer!");
-            yield break;
-        }
-
-        // Create a temporary UI text message
-        var quitGO = new GameObject("QuitText");
-        quitGO.transform.SetParent(transform);
-
-        TMP_Text quittingText = quitGO.AddComponent<TextMeshProUGUI>();  // For UI canvas
-        quittingText.font = Resources.GetBuiltinResource<TMP_FontAsset>("LiberationSans SDF.asset"); // or assign your TMP font
-        quittingText.text = $"{adventurer.name} has left the guild.";
-        quittingText.fontSize = 28;
-        quittingText.alignment = TextAlignmentOptions.Center;
-        quittingText.color = Color.red;
-        quittingText.rectTransform.sizeDelta = new Vector2(400, 50);
-        quittingText.rectTransform.anchoredPosition = new Vector2(0, -100);
-
-        // Wait 2 seconds so player can read it
-        yield return new WaitForSeconds(2f);
-
-        // Destroy the message GameObject
-        Destroy(quittingText.gameObject);
-
-        // Hide adventurer from the scene (optional)
-        if (adventurer.gameObject != null)
-            adventurer.gameObject.SetActive(false);
-
-    }
-
     public void OnChoiceSelected(bool isAccepted)
     {
         if (currentAdventurerAtCounter == null) return;
@@ -752,15 +785,6 @@ public class GameManager : MonoBehaviour
         }
 
         UpdateMoodUI();
-
-        if (currentAdventurerAtCounter.mood == Mood.VeryBad)
-        {
-            Debug.Log($"{currentAdventurerAtCounter.name} has quit the guild!");
-            StartCoroutine(HandleAdventurerQuit(currentAdventurerAtCounter));
-            choicePanel.SetActive(false);
-            return;
-        }
-
         choicePanel.SetActive(false);
     }
 
@@ -772,7 +796,7 @@ public class GameManager : MonoBehaviour
         moodUI.text = $"Mood: {currentAdventurerAtCounter.mood}";
     }
 
-    public void ProceedToNextDay()
+       public void ProceedToNextDay()
     {
         //GameResultsManager.Instance.IncrementDay();
         timeManager.StartNewDay();

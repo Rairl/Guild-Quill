@@ -21,6 +21,12 @@ public class GameResultsManager : MonoBehaviour
     private int dailyEarnings = 0;
     private int currentDay = 1;
 
+    [Header("Results List UI")]
+    public TMP_Text resultsListTextLeft;
+    public TMP_Text resultsListTextRight;
+
+    private List<QuestResult> questResultsToday = new();
+
     void Awake()
     {
         if (Instance == null) Instance = this;
@@ -36,10 +42,24 @@ public class GameResultsManager : MonoBehaviour
         dailyEarnings += amount;
     }
 
+    public void AddQuestResult(QuestResult result)
+    {
+        questResultsToday.Add(result);
+    }
+
     public void ShowEndResults()
     {
         earningsText.text = $"You earned ${dailyEarnings} today!";
         dayText.text = $"End of Day {currentDay}";
+
+        // Split into two groups
+        int splitIndex = Mathf.CeilToInt(questResultsToday.Count / 2f);
+        List<QuestResult> leftResults = questResultsToday.GetRange(0, splitIndex);
+        List<QuestResult> rightResults = questResultsToday.GetRange(splitIndex, questResultsToday.Count - splitIndex);
+
+        resultsListTextLeft.text = BuildResultsText(leftResults);
+        resultsListTextRight.text = BuildResultsText(rightResults);
+
         endResultsPanel.SetActive(true);
 
         nextDayButton.onClick.RemoveAllListeners();
@@ -61,6 +81,7 @@ public class GameResultsManager : MonoBehaviour
 
         TimeManager.Instance.StartNewDay();
         GameManager.Instance.SetDayOver(false);
+        questResultsToday.Clear();
 
         ShowDayStartPanel(); // Show new day panel
         GameManager.Instance.OnNewDayStart();
@@ -82,9 +103,35 @@ public class GameResultsManager : MonoBehaviour
         yield return new WaitForSeconds(2f);
         dayStartPanel.SetActive(false);
     }
-
-    /*public void IncrementDay()
+    string BuildResultsText(List<QuestResult> results)
     {
-        currentDay += 1;
-    }*/
+        string output = "";
+
+        foreach (var result in results)
+        {
+            string outcome = result.wasSuccessful ? "<color=green>Success</color>" : "<color=red>Failed</color>";
+            output +=
+                $"<b>{result.adventurerName}</b>\n" +
+                $"{result.questName}\n" +
+                $"Mood: {result.moodAtEnd} | {outcome}\n\n";
+        }
+
+        return output;
+    }
+
+}
+public class QuestResult
+{
+    public string adventurerName;
+    public string questName;
+    public Mood moodAtEnd;
+    public bool wasSuccessful;
+
+    public QuestResult(string name, string quest, Mood mood, bool success)
+    {
+        adventurerName = name;
+        questName = quest;
+        moodAtEnd = mood;
+        wasSuccessful = success;
+    }
 }
