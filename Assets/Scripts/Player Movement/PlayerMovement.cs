@@ -24,6 +24,9 @@ namespace TopDown
         public GameObject movingPlayer;
         public GameObject staticPlayer;
 
+        //Tavern
+        public GameObject tarvenText;
+
         private void Awake()
         {
             rb = GetComponent<Rigidbody2D>(); // Get the Rigidbody2D on the GameObject
@@ -110,6 +113,20 @@ namespace TopDown
                     staticPlayer.SetActive(true);
                 }
             }
+            else if (collision.gameObject.tag == "Tavern")
+            {
+                if (Input.GetKey(KeyCode.E))
+                {
+                    StartCoroutine(TavernMinigame());
+                }     
+            }
+        }
+
+        IEnumerator TavernMinigame()
+        {
+            tarvenText.SetActive(true);
+            yield return new WaitForSeconds(2f);
+            tarvenText.SetActive(false);
         }
     }
 }
