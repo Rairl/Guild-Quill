@@ -4911,7 +4911,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &82556495
 RectTransform:
   m_ObjectHideFlags: 0
@@ -30148,8 +30148,8 @@ MonoBehaviour:
   - text: From day two onwards, you will have access to a book which contains all
       the relavent quests together with the ideal traits.
     image: {fileID: 21300000, guid: fc629d6ccd08e3147b2ea5f1dd34ac9b, type: 3}
-  - text: You will need to cross check to determine which quests suits them. Some
-      adventures may lie to you so watch out!
+  - text: You will need to cross check the quest with the book to determine which
+      quests suits them. Some adventures may lie to you so watch out!
     image: {fileID: 21300000, guid: 2e20219908ec9dd42ae6ceb4cff6460b, type: 3}
   - text: At the end of the day, you can check you and your adventurers progress.
       You can earn or lose income based on the quest success or failure. You can
@@ -111018,7 +111018,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &1811500047
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -124082,7 +124082,7 @@ MonoBehaviour:
   workUI: {fileID: 1583689235}
   levelStatic: {fileID: 1389743069}
   playerStatic: {fileID: 2006476564}
-  speedTime: {fileID: 82556494}
+  speedTime: {fileID: 1811500046}
   skipTime: {fileID: 1811500046}
   levelMain: {fileID: 2115012626}
   playerMain: {fileID: 1384078891}
