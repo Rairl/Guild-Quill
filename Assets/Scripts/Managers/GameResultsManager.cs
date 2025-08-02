@@ -13,6 +13,7 @@ public class GameResultsManager : MonoBehaviour
     public TMP_Text earningsText;
     public TMP_Text dayText;
     public Button nextDayButton;
+    public Button winloseButton;
 
     [Header("Day Start UI")]
     public GameObject dayStartPanel;
@@ -40,6 +41,11 @@ public class GameResultsManager : MonoBehaviour
     public void AddEarnings(int amount)
     {
         dailyEarnings += amount;
+    }
+
+    public int GetTotalEarnings()
+    {
+        return dailyEarnings;
     }
 
     public void AddQuestResult(QuestResult result)
@@ -72,7 +78,7 @@ public class GameResultsManager : MonoBehaviour
         currentDay++;
         endResultsPanel.SetActive(false);
 
-        if (currentDay > 5)
+        if (currentDay > 4)
         {
             GameManager.Instance.endcreditsPanel.SetActive(true);
             GameManager.Instance.endcreditsScroll.SetActive(true);

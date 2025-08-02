@@ -26,10 +26,18 @@ public class GameManager : MonoBehaviour
     public GameObject levelMain;
     public GameObject playerMain;
 
+
     public GameObject drawerBlock;
 
+    [Header("Win/Lose")]
     public GameObject endcreditsPanel;
     public GameObject endcreditsScroll;
+    public GameObject winPanel;
+    public GameObject gameoverPanel;
+    public float WinloseDelay = 3f;
+    public List<Adventurer> adventurers;
+    public GameObject winLoseButton;
+    public GameObject nextButton;
 
     [Header("UI Elements")]
     public GameObject adventurerIDHolder;
@@ -64,6 +72,7 @@ public class GameManager : MonoBehaviour
 
     private int adventurersStampedToday = 0;
     private List<QuestResult> questResultsToday = new();
+
 
     private readonly string[] possibleNames = {
         "Cylix", "Pavel", "Terys", "Aria", "Minetta", "Dana", "Nindr", "Saevel", "Gildir",
@@ -212,6 +221,7 @@ public class GameManager : MonoBehaviour
     private Coroutine spawnCoroutine;
     private int dayNumber => GameResultsManager.Instance.GetCurrentDay();
 
+
     void Awake()
     {
         Instance = this;
@@ -260,12 +270,12 @@ public class GameManager : MonoBehaviour
                 activeAdventurers.Add(adventurer);
 
                 yield return StartCoroutine(HandleDayOneRegistration(adventurer));
-                yield return WaitForSecondsScaled(6f);
+                yield return WaitForSecondsScaled(2f);
             }
 
             yield break;
         }
-        else if (spawnDay == 5)
+        else if (spawnDay == 4) //5
         {
             for (int i = 0; i < 10; i++)
             {
@@ -285,7 +295,7 @@ public class GameManager : MonoBehaviour
                 activeAdventurers.Add(adventurer);
 
                 yield return StartCoroutine(HandleDayFiveRaid());
-                yield return WaitForSecondsScaled(6f);
+                yield return WaitForSecondsScaled(2f);
             }
 
             yield break;
@@ -307,7 +317,7 @@ public class GameManager : MonoBehaviour
                 skipTime.SetActive(true);
                 TraitsQuestOpen.SetActive(true);
 
-                yield return WaitForSecondsScaled(30f);
+                yield return WaitForSecondsScaled(3f);
 
                 DateTime currentTime = timeManager.GetCurrentTime();
                 Debug.Log($"Day {dayNumber} current time: {currentTime.TimeOfDay}");
@@ -320,7 +330,7 @@ public class GameManager : MonoBehaviour
 
                     Transform target = spawnPoints[adventurerCount % spawnPoints.Length];
                     StartCoroutine(MoveToPosition(adventurer.gameObject, target.position));
-                    StartCoroutine(AttemptMoveToCounter(adventurer, 15f));
+                    StartCoroutine(AttemptMoveToCounter(adventurer, 5f));
 
                     adventurerCount++;
                 }
@@ -397,6 +407,10 @@ public class GameManager : MonoBehaviour
         dialogueButton.SetActive(true);
         adventurerIDHolder.SetActive(true);
         questHolder.SetActive(true);
+        drawerBlock.SetActive(true);
+
+        nextButton.SetActive(false);
+        winLoseButton.SetActive(true);
 
         nameText.text = "Raid Party";
         traitsText.text = string.Join(", ", activeAdventurers.Select(a => a.name).ToArray());
@@ -430,16 +444,51 @@ public class GameManager : MonoBehaviour
     }
 
     private float GetMoodModifier(Mood mood)
-{
-    switch (mood)
     {
+      switch (mood)
+      {
         case Mood.Good:     return  0.0f;
         case Mood.Neutral:  return -0.15f;
         case Mood.Bad:      return -0.3f;
         case Mood.VeryBad:  return -0.45f;
         default:            return  0f;
+      }
     }
-}
+
+    public void EvaluateRaidResult(List<Adventurer> adventurers)
+    {
+        int totalEarnedToday = GameResultsManager.Instance.GetTotalEarnings();
+
+        Debug.Log($"[RAID RESULT] Total earnings today: {totalEarnedToday}");
+
+        bool majoritySucceeded = totalEarnedToday >= 500;
+
+        if (majoritySucceeded)
+        {
+            Debug.Log("[RAID] Majority succeeded!");
+            StartCoroutine(ShowResultAndCredits(winPanel));
+        }
+        else
+        {
+            Debug.Log("[RAID] Majority failed!");
+            StartCoroutine(ShowResultAndCredits(gameoverPanel));
+        }
+    }
+
+    private IEnumerator ShowResultAndCredits(GameObject resultPanel)
+    {
+        resultPanel.SetActive(true);
+        yield return new WaitForSeconds(WinloseDelay);
+        resultPanel.SetActive(false);
+
+        endcreditsPanel.SetActive(true);
+        endcreditsScroll.SetActive(true);
+    }
+
+    public void OnRaidButtonPressed()
+    {
+        EvaluateRaidResult(adventurers);
+    }
     List<Trait> RandomizeTraits(List<Trait> pool, int max)
     {
         List<Trait> selected = new();
@@ -797,8 +846,7 @@ public class GameManager : MonoBehaviour
     }
 
        public void ProceedToNextDay()
-    {
-        //GameResultsManager.Instance.IncrementDay();
+    {        
         timeManager.StartNewDay();
         OnNewDayStart();
     }
